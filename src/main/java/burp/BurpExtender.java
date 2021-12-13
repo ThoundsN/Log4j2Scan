@@ -35,3 +35,23 @@ public class BurpExtender implements IBurpExtender, ITab {
         return null;
     }
 }
+
+
+//add json request and x-www-url-formed support
+//
+//
+//add parameter in url
+//use one single random domain for one request
+//backfix in path
+//
+//
+//
+//tmpdomain: original requerst
+//tmpdomain: scanitem  ->  (request, iparameter)  ,(request, headername)
+//
+//
+//
+//pattern of log4j usage in opensource project and other cms
+
+
+//add key cache to remove duplicate , host url parameter   done

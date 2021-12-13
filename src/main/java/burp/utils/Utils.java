@@ -2,13 +2,12 @@ package burp.utils;
 
 
 import burp.IBurpExtenderCallbacks;
+import burp.IParameter;
+import burp.IRequestInfo;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.Arrays;
-import java.util.LinkedHashSet;
-import java.util.Random;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class Utils {
@@ -87,5 +86,19 @@ public class Utils {
         byte[] secretBytes = null;
         secretBytes = md.digest(src);
         return secretBytes;
+    }
+
+    public static String getKeyOfRequest(IRequestInfo request){
+        String method = request.getMethod();
+        String host = request.getUrl().getHost();
+        List<IParameter> params =  request.getParameters();
+        StringBuilder paramNameStr = new StringBuilder();
+        for (IParameter param : params){
+            if( param.getType() != IParameter.PARAM_COOKIE){
+                paramNameStr.append('_' + param.getName());
+            }
+        }
+
+        return method+":"+ host + paramNameStr.toString();
     }
 }

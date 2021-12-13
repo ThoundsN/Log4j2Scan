@@ -20,6 +20,7 @@ public class Log4j2Scanner implements IScannerCheck {
     private BurpExtender parent;
     private IExtensionHelpers helper;
     private IBackend backend;
+    private HashSet<String> scanned_Urls;
 
     private final String[] HEADER_BLACKLIST = new String[]{
             "content-length",
@@ -34,6 +35,7 @@ public class Log4j2Scanner implements IScannerCheck {
             "X-Remote-IP",
             "X-Remote-Addr",
             "X-Forwarded-For",
+            "X-Forwarded-Host",
             "X-Originating-IP",
             "Originating-IP",
             "CF-Connecting_IP",
@@ -89,6 +91,7 @@ public class Log4j2Scanner implements IScannerCheck {
         this.helper = newParent.helpers;
         this.pocs = new IPOC[]{new POC1(), new POC2(), new POC3(), new POC4(), new POC11()};
         this.backend = new DnslogCN();
+        this.scanned_Urls = new HashSet<>();
         if (this.backend.getState()) {
             parent.stdout.println("Log4j2Scan loaded successfully!\r\n");
         } else {
@@ -105,14 +108,19 @@ public class Log4j2Scanner implements IScannerCheck {
     @Override
     public List<IScanIssue> doPassiveScan(IHttpRequestResponse baseRequestResponse) {
         IRequestInfo req = this.parent.helpers.analyzeRequest(baseRequestResponse);
+        String key = Utils.getKeyOfRequest(req);
         List<IScanIssue> issues = new ArrayList<>();
+        if (scanned_Urls.contains(key)){
+            return issues;
+        }
+        this.scanned_Urls.add(key);
         if (!isStaticFile(req.getUrl().toString())) {
-            parent.stdout.println(String.format("Scanning: %s", req.getUrl()));
+            parent.stdout.println(String.format("Scanning: %s", req.getUrl().toString()));
             Map<String, ScanItem> domainMap = new HashMap<>();
             domainMap.putAll(paramsFuzz(baseRequestResponse, req));
             domainMap.putAll(headerFuzz(baseRequestResponse, req));
             try {
-                Thread.sleep(2000); //sleep 2s, wait for network delay.
+                Thread.sleep(10000); //sleep 10s, wait for network delay.
             } catch (InterruptedException e) {
                 parent.stdout.println(e);
             }
@@ -168,6 +176,8 @@ public class Log4j2Scanner implements IScannerCheck {
         return domainMap;
     }
 
+    //only Scanned cookie
+// when iterating Iparamter there seems to be only PARAM_COOKIE and PARAM_JSON
     private Map<String, ScanItem> paramsFuzz(IHttpRequestResponse baseRequestResponse, IRequestInfo req) {
         Map<String, ScanItem> domainMap = new HashMap<>();
         byte[] rawRequest = baseRequestResponse.getRequest();
