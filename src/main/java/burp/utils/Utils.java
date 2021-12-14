@@ -4,6 +4,9 @@ package burp.utils;
 import burp.IBurpExtenderCallbacks;
 import burp.IParameter;
 import burp.IRequestInfo;
+import burp.poc.IPOC;
+
+import java.lang.reflect.Field;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -36,6 +39,22 @@ public class Utils {
     public static int[] getRandomIndex(int size, int max) {
         if (size > max) size = max;
         return ThreadLocalRandom.current().ints(0, max).distinct().limit(size).toArray();
+    }
+
+    public static long getRandomLong() {
+        return rand.nextLong();
+    }
+
+    public static Map<Integer, IPOC> getPOCs(Integer[] pocRange) {
+        Map<Integer, IPOC> pocs = new HashMap();
+        for (int pocId : pocRange) {
+            try {
+                pocs.put(pocId, (IPOC) Class.forName("burp.poc.impl.POC" + pocId).getConstructor().newInstance());
+            } catch (Exception ex) {
+                Utils.Callback.printOutput(ex.toString());
+            }
+        }
+        return pocs;
     }
 
     public static String confusionChars(String[] _chars) {

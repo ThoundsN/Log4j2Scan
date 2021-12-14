@@ -2,15 +2,14 @@ package burp.scanner;
 
 import burp.*;
 import burp.backend.IBackend;
-import burp.backend.platform.Ceye;
-import burp.backend.platform.DnslogCN;
-import burp.backend.platform.RevSuitRMI;
+import burp.backend.platform.*;
 import burp.poc.IPOC;
 import burp.poc.impl.*;
-import burp.utils.HttpHeader;
-import burp.utils.HttpUtils;
-import burp.utils.ScanItem;
-import burp.utils.Utils;
+import burp.ui.tabs.BackendUIHandler;
+import burp.utils.*;
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
+import static burp.ui.tabs.POCUIHandler.defaultEnabledPocIds;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -19,7 +18,7 @@ import java.util.stream.Stream;
 public class Log4j2Scanner implements IScannerCheck {
     private BurpExtender parent;
     private IExtensionHelpers helper;
-    private IBackend backend;
+    public IBackend backend;
     private HashSet<String> scanned_Urls;
 
     private final String[] HEADER_BLACKLIST = new String[]{
@@ -90,7 +89,9 @@ public class Log4j2Scanner implements IScannerCheck {
         this.parent = newParent;
         this.helper = newParent.helpers;
         this.pocs = new IPOC[]{new POC1(), new POC2(), new POC3(), new POC4(), new POC11()};
-        this.backend = new DnslogCN();
+//        this.backend = new DnslogCN();
+        this.loadConfig();
+
         this.scanned_Urls = new HashSet<>();
         if (this.backend.getState()) {
             parent.stdout.println("Log4j2Scan loaded successfully!\r\n");
@@ -110,23 +111,27 @@ public class Log4j2Scanner implements IScannerCheck {
         IRequestInfo req = this.parent.helpers.analyzeRequest(baseRequestResponse);
         String key = Utils.getKeyOfRequest(req);
         List<IScanIssue> issues = new ArrayList<>();
+
         if (scanned_Urls.contains(key)){
             return issues;
         }
         this.scanned_Urls.add(key);
-        if (!isStaticFile(req.getUrl().toString())) {
-            parent.stdout.println(String.format("Scanning: %s", req.getUrl().toString()));
-            Map<String, ScanItem> domainMap = new HashMap<>();
-            domainMap.putAll(paramsFuzz(baseRequestResponse, req));
-            domainMap.putAll(headerFuzz(baseRequestResponse, req));
-            try {
-                Thread.sleep(10000); //sleep 10s, wait for network delay.
-            } catch (InterruptedException e) {
-                parent.stdout.println(e);
-            }
-            issues.addAll(finalCheck(baseRequestResponse, req, domainMap));
-            parent.stdout.println(String.format("Scan complete: %s", req.getUrl()));
+        if (isStaticFile(req.getUrl().toString())){
+            return issues;
         }
+
+        parent.stdout.println(String.format("Scanning: %s", req.getUrl().toString()));
+        Map<String, ScanItem> domainMap = new HashMap<>();
+        domainMap.putAll(paramsFuzz(baseRequestResponse, req));
+        domainMap.putAll(headerFuzz(baseRequestResponse, req));
+
+        try {
+            Thread.sleep(10000); //sleep 10s, wait for network delay.
+        } catch (InterruptedException e) {
+            parent.stdout.println(e);
+        }
+        issues.addAll(finalCheck(baseRequestResponse, req, domainMap));
+        parent.stdout.println(String.format("Scan complete: %s", req.getUrl()));
         return issues;
     }
 
@@ -138,17 +143,23 @@ public class Log4j2Scanner implements IScannerCheck {
         return Arrays.stream(pocs).filter(p -> Arrays.stream(backend.getSupportedPOCTypes()).anyMatch(c -> c == p.getType())).collect(Collectors.toList());
     }
 
+//    private Map<String, ScanItem> pathFuzz(IHttpRequestResponse baseRequestResponse, IRequestInfo req) {
+//
+//    }
+
     private Map<String, ScanItem> headerFuzz(IHttpRequestResponse baseRequestResponse, IRequestInfo req) {
         List<String> headers = req.getHeaders();
         Map<String, ScanItem> domainMap = new HashMap<>();
-        try {
+        try {      // Fuzzing already existed headers
             byte[] rawRequest = baseRequestResponse.getRequest();
             List<String> guessHeaders = new ArrayList(Arrays.asList(HEADER_GUESS));
             for (int i = 1; i < headers.size(); i++) {
                 HttpHeader header = new HttpHeader(headers.get(i));
                 if (Arrays.stream(HEADER_BLACKLIST).noneMatch(h -> h.equalsIgnoreCase(header.Name))) {
+                    //header is not cookie, host
                     List<String> needSkipheader = guessHeaders.stream().filter(h -> h.equalsIgnoreCase(header.Name)).collect(Collectors.toList());
                     needSkipheader.forEach(guessHeaders::remove);
+                    // remove alreay existed header from guess headers
                     for (IPOC poc : getSupportedPOCs()) {
                         List<String> tmpHeaders = new ArrayList<>(headers);
                         String tmpDomain = backend.getNewPayload();
@@ -160,16 +171,21 @@ public class Log4j2Scanner implements IScannerCheck {
                     }
                 }
             }
-            for (String headerName : guessHeaders) {
-                for (IPOC poc : getSupportedPOCs()) {
-                    List<String> tmpHeaders = new ArrayList<>(headers);
+            for (IPOC poc : getSupportedPOCs()) {
+                List<String> tmpHeaders = new ArrayList<>(headers);
+                Map<String, String> domainHeaderMap = new HashMap<>();
+                for (String headerName : guessHeaders) {
                     String tmpDomain = backend.getNewPayload();
                     tmpHeaders.add(String.format("%s: %s", headerName, poc.generate(tmpDomain)));
-                    byte[] tmpRawRequest = helper.buildHttpMessage(tmpHeaders, Arrays.copyOfRange(rawRequest, req.getBodyOffset(), rawRequest.length));
-                    IHttpRequestResponse tmpReq = parent.callbacks.makeHttpRequest(baseRequestResponse.getHttpService(), tmpRawRequest);
-                    domainMap.put(tmpDomain, new ScanItem(headerName, tmpReq));
+                    domainHeaderMap.put(headerName, tmpDomain);
+                }
+                byte[] tmpRawRequest = helper.buildHttpMessage(tmpHeaders, Arrays.copyOfRange(rawRequest, req.getBodyOffset(), rawRequest.length));
+                IHttpRequestResponse tmpReq = parent.callbacks.makeHttpRequest(baseRequestResponse.getHttpService(), tmpRawRequest);
+                for (Map.Entry<String, String> domainHeader : domainHeaderMap.entrySet()) {
+                    domainMap.put(domainHeader.getValue(), new ScanItem(domainHeader.getKey(), tmpReq));
                 }
             }
+
         } catch (Exception ex) {
             parent.stdout.println(ex);
         }
@@ -258,6 +274,58 @@ public class Log4j2Scanner implements IScannerCheck {
                 return "Body-xml-attr";
             default:
                 return "unknown";
+        }
+    }
+
+    public void close() {
+        if (this.backend != null) {
+            this.backend.close();
+        }
+    }
+
+    public boolean getState() {
+        try {
+            return this.backend.getState() && getSupportedPOCs().size() > 0;
+        } catch (Exception ex) {
+            return false;
+        }
+    }
+
+    private void loadConfig() {
+        BackendUIHandler.Backends currentBackend = BackendUIHandler.Backends.valueOf(Config.get(Config.CURRENT_BACKEND, BackendUIHandler.Backends.BurpCollaborator.name()));
+        JSONArray enabled_poc_ids = JSONArray.parseArray(Config.get(Config.ENABLED_POC_IDS, JSONObject.toJSONString(defaultEnabledPocIds)));
+
+        try {
+            switch (currentBackend) {
+                case Ceye:
+                    this.backend = new Ceye();
+                    break;
+                case DnslogCN:
+                    this.backend = new DnslogCN();
+                    break;
+                case RevSuitDNS:
+                    this.backend = new RevSuitDNS();
+                    break;
+                case RevSuitRMI:
+                    this.backend = new RevSuitRMI();
+                    break;
+                case GoDnslog:
+                    this.backend = new GoDnslog();
+                    break;
+                case BurpCollaborator:
+                    this.backend = new BurpCollaborator();
+                    break;
+            }
+            List<Integer> enabled_poc_ids_list = new ArrayList<>();
+            enabled_poc_ids.forEach(e -> enabled_poc_ids_list.add((int) e));
+            this.pocs = Utils.getPOCs(Arrays.asList(enabled_poc_ids.toArray()).toArray(new Integer[0])).values().toArray(new IPOC[0]);
+        } catch (Exception ex) {
+            parent.stdout.println(ex);
+        } finally {
+            if (this.backend == null || !this.backend.getState()) {
+                parent.stdout.println("Load backend from config failed! fallback to dnslog.cn....");
+                this.backend = new DnslogCN();
+            }
         }
     }
 
