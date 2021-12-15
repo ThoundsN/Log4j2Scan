@@ -147,44 +147,69 @@ public class Log4j2Scanner implements IScannerCheck {
 //
 //    }
 
-    private Map<String, ScanItem> headerFuzz(IHttpRequestResponse baseRequestResponse, IRequestInfo req) {
+
+    private Map<String, ScanItem> existingHeaderFuzz(IHttpRequestResponse baseRequestResponse, IRequestInfo req) {
+        // Fuzzing already existed headers
+        // one temp domain :  one existing header   ->   all pocs
+
         List<String> headers = req.getHeaders();
+        List<String> guessHeaders = new ArrayList(Arrays.asList(HEADER_GUESS));
+        byte[] rawRequest = baseRequestResponse.getRequest();
         Map<String, ScanItem> domainMap = new HashMap<>();
-        try {      // Fuzzing already existed headers
-            byte[] rawRequest = baseRequestResponse.getRequest();
-            List<String> guessHeaders = new ArrayList(Arrays.asList(HEADER_GUESS));
-            for (int i = 1; i < headers.size(); i++) {
-                HttpHeader header = new HttpHeader(headers.get(i));
-                if (Arrays.stream(HEADER_BLACKLIST).noneMatch(h -> h.equalsIgnoreCase(header.Name))) {
-                    //header is not cookie, host
-                    List<String> needSkipheader = guessHeaders.stream().filter(h -> h.equalsIgnoreCase(header.Name)).collect(Collectors.toList());
-                    needSkipheader.forEach(guessHeaders::remove);
-                    // remove alreay existed header from guess headers
-                    for (IPOC poc : getSupportedPOCs()) {
-                        List<String> tmpHeaders = new ArrayList<>(headers);
-                        String tmpDomain = backend.getNewPayload();
-                        header.Value = poc.generate(tmpDomain);
-                        tmpHeaders.set(i, header.toString());
-                        byte[] tmpRawRequest = helper.buildHttpMessage(tmpHeaders, Arrays.copyOfRange(rawRequest, req.getBodyOffset(), rawRequest.length));
-                        IHttpRequestResponse tmpReq = parent.callbacks.makeHttpRequest(baseRequestResponse.getHttpService(), tmpRawRequest);
-                        domainMap.put(tmpDomain, new ScanItem(header.Name, tmpReq));
-                    }
+
+        for (int i = 1; i < headers.size(); i++) {
+            HttpHeader header = new HttpHeader(headers.get(i));
+            if (Arrays.stream(HEADER_BLACKLIST).noneMatch(h -> h.equalsIgnoreCase(header.Name))) {
+                //header is not cookie, host
+                List<String> needSkipheader = guessHeaders.stream().filter(h -> h.equalsIgnoreCase(header.Name)).collect(Collectors.toList());
+                needSkipheader.forEach(guessHeaders::remove);
+                // remove alreay existed header from guess headers
+                String tmpDomain = backend.getNewPayload();
+                String payloadDomain = Utils.addPrefixTempDomain(header.Name,tmpDomain);
+                for (IPOC poc : getSupportedPOCs()) {
+                    List<String> tmpHeaders = new ArrayList<>(headers);
+
+                    header.Value = poc.generate(payloadDomain);
+                    tmpHeaders.set(i, header.toString());
+                    byte[] tmpRawRequest = helper.buildHttpMessage(tmpHeaders, Arrays.copyOfRange(rawRequest, req.getBodyOffset(), rawRequest.length));
+                    IHttpRequestResponse tmpReq = parent.callbacks.makeHttpRequest(baseRequestResponse.getHttpService(), tmpRawRequest);
+                    domainMap.put(payloadDomain, new ScanItem(header.Name, tmpReq));
                 }
             }
-            for (IPOC poc : getSupportedPOCs()) {
-                List<String> tmpHeaders = new ArrayList<>(headers);
-                Map<String, String> domainHeaderMap = new HashMap<>();
-                for (String headerName : guessHeaders) {
-                    String tmpDomain = backend.getNewPayload();
-                    tmpHeaders.add(String.format("%s: %s", headerName, poc.generate(tmpDomain)));
-                    domainHeaderMap.put(headerName, tmpDomain);
-                }
-                byte[] tmpRawRequest = helper.buildHttpMessage(tmpHeaders, Arrays.copyOfRange(rawRequest, req.getBodyOffset(), rawRequest.length));
-                IHttpRequestResponse tmpReq = parent.callbacks.makeHttpRequest(baseRequestResponse.getHttpService(), tmpRawRequest);
-                for (Map.Entry<String, String> domainHeader : domainHeaderMap.entrySet()) {
-                    domainMap.put(domainHeader.getValue(), new ScanItem(domainHeader.getKey(), tmpReq));
-                }
+        }
+        return domainMap;
+    }
+
+    private Map<String, ScanItem> guessHeaderFuzz(IHttpRequestResponse baseRequestResponse, IRequestInfo req) {
+        List<String> headers = req.getHeaders();
+        List<String> guessHeaders = new ArrayList(Arrays.asList(HEADER_GUESS));
+        byte[] rawRequest = baseRequestResponse.getRequest();
+        Map<String, ScanItem> domainMap = new HashMap<>();
+        List<String> tmpHeaders = new ArrayList<>(headers);
+        String tmpDomain = backend.getNewPayload();
+
+        for (IPOC poc : getSupportedPOCs()) {
+            Map<String, String> domainHeaderMap = new HashMap<>();
+            for (String headerName : guessHeaders) {
+                String payloadDomain = Utils.addPrefixTempDomain(headerName,tmpDomain);
+
+                tmpHeaders.add(String.format("%s: %s", headerName, poc.generate(tmpDomain)));
+                domainHeaderMap.put(headerName, tmpDomain);
             }
+            byte[] tmpRawRequest = helper.buildHttpMessage(tmpHeaders, Arrays.copyOfRange(rawRequest, req.getBodyOffset(), rawRequest.length));
+            IHttpRequestResponse tmpReq = parent.callbacks.makeHttpRequest(baseRequestResponse.getHttpService(), tmpRawRequest);
+            for (Map.Entry<String, String> domainHeader : domainHeaderMap.entrySet()) {
+                domainMap.put(domainHeader.getValue(), new ScanItem(domainHeader.getKey(), tmpReq));
+            }
+        }
+        return domainMap;
+    }
+
+        private Map<String, ScanItem> headerFuzz(IHttpRequestResponse baseRequestResponse, IRequestInfo req) {
+        Map<String, ScanItem> domainMap = new HashMap<>();
+        try {
+            domainMap.putAll(existingHeaderFuzz(baseRequestResponse,req));
+            domainMap.putAll(guessHeaderFuzz(baseRequestResponse,req));
 
         } catch (Exception ex) {
             parent.stdout.println(ex);

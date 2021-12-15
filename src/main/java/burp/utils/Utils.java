@@ -107,6 +107,24 @@ public class Utils {
         return secretBytes;
     }
 
+
+    public static byte[] Replace(byte[] request, int[] selectedIndexRange, byte[] targetBytes) {
+        byte[] result = new byte[request.length - (selectedIndexRange[1] - selectedIndexRange[0]) + targetBytes.length];
+        System.arraycopy(request, 0, result, 0, selectedIndexRange[0]);
+        System.arraycopy(targetBytes, 0, result, selectedIndexRange[0], targetBytes.length);
+        System.arraycopy(request, selectedIndexRange[1], result, selectedIndexRange[0] + targetBytes.length, request.length - selectedIndexRange[1]);
+        return result;
+    }
+
+
+
+    public static String addPrefixTempDomain(String prefix,String tmpdomain){
+        String replaced = prefix.replaceAll("[_'-/?!.=+;:&%#~]","");
+
+        return prefix + "." + tmpdomain;
+
+    }
+
     public static String getKeyOfRequest(IRequestInfo request){
         String method = request.getMethod();
         String host = request.getUrl().getHost();
