@@ -15,8 +15,17 @@ public class ScanItem {
         this.TmpRequest = tmpreq;
     }
 
+
+    public ScanItem( IHttpRequestResponse tmpreq,String explantion) {
+        this.TmpRequest = tmpreq;
+        this.explanation = explantion;
+        this.HasExplantion = true;
+    }
+
     public String HeaderName;
+    public String explanation;
     public boolean IsHeader;
+    public boolean HasExplantion;
     public IParameter Param;
     public IHttpRequestResponse TmpRequest;
 }

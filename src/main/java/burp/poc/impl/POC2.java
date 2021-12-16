@@ -23,4 +23,9 @@ public class POC2 implements IPOC {
     public int getType() {
         return POC_TYPE_LDAP;
     }
+
+    @Override
+    public int getIndex() {
+        return 2;
+    }
 }

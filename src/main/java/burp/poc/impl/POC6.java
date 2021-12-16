@@ -13,4 +13,9 @@ public class POC6 implements IPOC {
     public int getType() {
         return POC_TYPE_RMI;
     }
+
+    @Override
+    public int getIndex() {
+        return 6;
+    }
 }

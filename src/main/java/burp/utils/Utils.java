@@ -120,8 +120,9 @@ public class Utils {
 
     public static String addPrefixTempDomain(String prefix,String tmpdomain){
         String replaced = prefix.replaceAll("[_'-/?!.=+;:&%#~]","");
+         replaced =replaced.toLowerCase();
 
-        return prefix + "." + tmpdomain;
+        return replaced + "." + tmpdomain;
 
     }
 

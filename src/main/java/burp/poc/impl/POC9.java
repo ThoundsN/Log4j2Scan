@@ -13,4 +13,9 @@ public class POC9 implements IPOC {
     public int getType() {
         return POC_TYPE_DNS;
     }
+
+    @Override
+    public int getIndex() {
+        return 9;
+    }
 }

@@ -8,7 +8,7 @@ import burp.ui.Log4j2ScanUIHandler;
 import java.awt.*;
 import java.io.PrintWriter;
 
-public class BurpExtender implements IBurpExtender, ITab {
+public class BurpExtender implements IBurpExtender,IExtensionStateListener  {
 
     public IExtensionHelpers helpers;
     public IBurpExtenderCallbacks callbacks;
@@ -16,7 +16,7 @@ public class BurpExtender implements IBurpExtender, ITab {
     public PrintWriter stderr;
     public Log4j2ScanUIHandler uiHandler;
     public Log4j2Scanner scanner;
-    public String version = "0.8";
+    public String version = "0.8.1";
 
 
     @Override
@@ -35,15 +35,6 @@ public class BurpExtender implements IBurpExtender, ITab {
 
     }
 
-    @Override
-    public String getTabCaption() {
-        return null;
-    }
-
-    @Override
-    public Component getUiComponent() {
-        return null;
-    }
 
     public void reloadScanner() {
         if (scanner != null) {
@@ -53,19 +44,19 @@ public class BurpExtender implements IBurpExtender, ITab {
         scanner = new Log4j2Scanner(this);
         callbacks.registerScannerCheck(scanner);
     }
+
+    public void extensionUnloaded() {
+        if (scanner != null) {
+            scanner.close();
+            callbacks.removeScannerCheck(scanner);
+        }
+    }
 }
 
 
-//add json request and x-www-url-formed support
-//
-//
-//add parameter in url
-//use one single random domain for one request
-//backfix in path
 //improve check logic
 
-//
-//subdomain of hashed domain
+//param whilte list
 //
 //tmpdomain: original requerst
 //tmpdomain: scanitem  ->  (request, iparameter)  ,(request, headername)
@@ -73,5 +64,10 @@ public class BurpExtender implements IBurpExtender, ITab {
 //
 
 
+//subdomain of hashed domain  done
 
 //add key cache to remove duplicate , host url parameter   done
+//backfix in path  done
+//use one single random domain for one request     done  not very useful
+
+

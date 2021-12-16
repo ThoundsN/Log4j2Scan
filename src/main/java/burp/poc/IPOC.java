@@ -7,4 +7,5 @@ public interface IPOC {
 
     String generate(String domain);
     int getType();
+    int getIndex();
 }
