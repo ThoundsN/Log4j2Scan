@@ -26,12 +26,12 @@ public class Log4j2Scanner implements IScannerCheck {
     private HashSet<String> scannedUrls;
     private HashSet<String> scannedCookies;
 
-    private final String[] HEADER_WHITELIST = new String[]{
-            "content-length",
-            "cookie",
-            "host",
-            "content-type"
-    };
+//    private final String[] HEADER_WHITELIST = new String[]{
+//            "content-length",
+//            "cookie",
+//            "host",
+//            "content-type"
+//    };
     private final String[] HEADER_GUESS = new String[]{
             "User-Agent",
             "X-Client-IP",

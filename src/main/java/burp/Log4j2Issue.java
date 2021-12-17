@@ -80,4 +80,5 @@ public class Log4j2Issue implements IScanIssue {
     public IHttpService getHttpService() {
         return httpService;
     }
+
 }

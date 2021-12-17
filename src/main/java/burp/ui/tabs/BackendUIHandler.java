@@ -108,8 +108,8 @@ public class BackendUIHandler {
         JButton saveBtn = new JButton("Save");
         saveBtn.setMaximumSize(saveBtn.getPreferredSize());
         saveBtn.addActionListener(e -> {
-            Config.set(Config.CEYE_IDENTIFIER, ceyeIdentifierInput.getText());
-            Config.set(Config.CEYE_TOKEN, ceyeTokenInput.getText());
+            Config.set(Config.CEYE_IDENTIFIER, ceyeIdentifierInput.getText().trim());
+            Config.set(Config.CEYE_TOKEN, ceyeTokenInput.getText().trim());
             JOptionPane.showMessageDialog(mainPanel, "Save success!");
         });
         JButton applyBtn = new JButton("Save&Apply");
@@ -160,9 +160,9 @@ public class BackendUIHandler {
         JButton saveBtn = new JButton("Save");
         saveBtn.setMaximumSize(saveBtn.getPreferredSize());
         saveBtn.addActionListener(e -> {
-            Config.set(Config.REVSUIT_RMI_ADMIN_URL, revSuitRMIAdminURL.getText());
-            Config.set(Config.REVSUIT_RMI_ADDR, revSuitRMIAddr.getText());
-            Config.set(Config.REVSUIT_RMI_TOKEN, revSuitRMIToken.getText());
+            Config.set(Config.REVSUIT_RMI_ADMIN_URL, revSuitRMIAdminURL.getText().trim());
+            Config.set(Config.REVSUIT_RMI_ADDR, revSuitRMIAddr.getText().trim());
+            Config.set(Config.REVSUIT_RMI_TOKEN, revSuitRMIToken.getText().trim());
             JOptionPane.showMessageDialog(mainPanel, "Save success!");
         });
         JButton applyBtn = new JButton("Save&Apply");
@@ -213,9 +213,9 @@ public class BackendUIHandler {
         JButton saveBtn = new JButton("Save");
         saveBtn.setMaximumSize(saveBtn.getPreferredSize());
         saveBtn.addActionListener(e -> {
-            Config.set(Config.REVSUIT_DNS_ADMIN_URL, revSuitDNSAdminURL.getText());
-            Config.set(Config.REVSUIT_DNS_DOMAIN, revSuitDNSDomain.getText());
-            Config.set(Config.REVSUIT_DNS_TOKEN, revSuitDNSToken.getText());
+            Config.set(Config.REVSUIT_DNS_ADMIN_URL, revSuitDNSAdminURL.getText().trim());
+            Config.set(Config.REVSUIT_DNS_DOMAIN, revSuitDNSDomain.getText().trim());
+            Config.set(Config.REVSUIT_DNS_TOKEN, revSuitDNSToken.getText().trim());
             JOptionPane.showMessageDialog(mainPanel, "Save success!");
         });
         JButton applyBtn = new JButton("Save&Apply");
@@ -261,8 +261,8 @@ public class BackendUIHandler {
         JButton saveBtn = new JButton("Save");
         saveBtn.setMaximumSize(saveBtn.getPreferredSize());
         saveBtn.addActionListener(e -> {
-            Config.set(Config.GODNSLOG_IDENTIFIER, GoDnslogIdentifierInput.getText());
-            Config.set(Config.GODNSLOG_TOKEN, GoDnslogTokenInput.getText());
+            Config.set(Config.GODNSLOG_IDENTIFIER, GoDnslogIdentifierInput.getText().trim());
+            Config.set(Config.GODNSLOG_TOKEN, GoDnslogTokenInput.getText().trim());
             JOptionPane.showMessageDialog(mainPanel, "Save success!");
         });
         JButton applyBtn = new JButton("Save&Apply");
