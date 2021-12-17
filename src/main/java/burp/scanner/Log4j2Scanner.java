@@ -26,7 +26,7 @@ public class Log4j2Scanner implements IScannerCheck {
     private HashSet<String> scannedUrls;
     private HashSet<String> scannedCookies;
 
-    private final String[] HEADER_BLACKLIST = new String[]{
+    private final String[] HEADER_WHITELIST = new String[]{
             "content-length",
             "cookie",
             "host",
@@ -169,7 +169,7 @@ public class Log4j2Scanner implements IScannerCheck {
 
 
         try {
-            Thread.sleep(10000); //sleep 10s, wait for network delay.
+            Thread.sleep(7777); //sleep 7s, wait for network delay.
         } catch (InterruptedException e) {
             parent.stdout.println(e);
         }
@@ -303,8 +303,8 @@ public class Log4j2Scanner implements IScannerCheck {
                     List<String> guessHeaders = new ArrayList(Arrays.asList(HEADER_GUESS));
                     for (int i = 1; i < headers.size(); i++) {
                         HttpHeader header = new HttpHeader(headers.get(i));
-                        if (Arrays.stream(HEADER_BLACKLIST).noneMatch(h -> h.equalsIgnoreCase(header.Name))) {
-                            List<String> needSkipheader = guessHeaders.stream().filter(h -> h.equalsIgnoreCase(header.Name)).collect(Collectors.toList());
+                        if (Cache.HEADER_WHITELIST.stream().anyMatch(header.Name::equalsIgnoreCase))
+                        {  List<String> needSkipheader = guessHeaders.stream().filter(h -> h.equalsIgnoreCase(header.Name)).collect(Collectors.toList());     //remove guessheader from existing headers
                             needSkipheader.forEach(guessHeaders::remove);
                             String tmpDomain = backend.getNewPayload();
                             header.Value = poc.generate(tmpDomain);
@@ -328,6 +328,9 @@ public class Log4j2Scanner implements IScannerCheck {
                 tmpRawRequest = parent.helpers.buildHttpMessage(tmpHeaders, rawBody);
                 IRequestInfo tmpReqInfo = parent.helpers.analyzeRequest(tmpRawRequest);
                 for (IParameter param : tmpReqInfo.getParameters()) {
+                    if(Cache.inWhiteList(param.getName())){
+                        continue;
+                    }
                     String tmpDomain = backend.getNewPayload();
                     String exp = poc.generate(tmpDomain);
                     boolean UseIparam = false;
@@ -417,7 +420,7 @@ public class Log4j2Scanner implements IScannerCheck {
 
         for (int i = 1; i < headers.size(); i++) {
             HttpHeader header = new HttpHeader(headers.get(i));
-            if (Arrays.stream(HEADER_BLACKLIST).noneMatch(h -> h.equalsIgnoreCase(header.Name))) {
+            if (Cache.HEADER_WHITELIST.stream().anyMatch(header.Name::equalsIgnoreCase)) {
                 //header is not cookie, host
                 List<String> needSkipheader = guessHeaders.stream().filter(h -> h.equalsIgnoreCase(header.Name)).collect(Collectors.toList());
                 needSkipheader.forEach(guessHeaders::remove);
@@ -488,6 +491,9 @@ public class Log4j2Scanner implements IScannerCheck {
 
 
         for (IParameter param : req.getParameters()) {
+            if (Cache.inWhiteList(param.getName())){
+                continue;
+            }
 
                 byte[] tmpRawRequest = rawRequest;
                 String paramName = param.getName();

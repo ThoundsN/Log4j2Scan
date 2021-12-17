@@ -1,5 +1,7 @@
 package burp.utils;
 
+import java.util.HashSet;
+
 public class Config {
     public enum FuzzMode {
         EachFuzz, Crazy
