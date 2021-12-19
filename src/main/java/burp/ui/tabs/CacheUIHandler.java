@@ -1,16 +1,15 @@
 package burp.ui.tabs;
 
 import burp.BurpExtender;
+import burp.ui.models.RequestKeyModel;
 import burp.utils.Cache;
-import burp.utils.Config;
 import burp.utils.UIUtil;
 
 import javax.swing.*;
-import javax.swing.border.Border;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
-import java.awt.event.ItemEvent;
-import java.util.ArrayList;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 
 
 public class CacheUIHandler {
@@ -19,6 +18,7 @@ public class CacheUIHandler {
     private JTextArea wlistParamInput;
     private JTextArea wlistParamDisplay;
     private JScrollPane wlistParamDisplayscroll;
+    public RequestKeyModel model;
     private Insets buttonMargin = new Insets(0, 3, 0, 3);
 
 
@@ -35,6 +35,7 @@ public class CacheUIHandler {
         JPanel panel1 = UIUtil.GetXJPanel();
         JTabbedPane cachePanel = new JTabbedPane();
         cachePanel.add("WhiteList ParamName ",getWhilelistPanel());
+        cachePanel.add("Scanned Requests ",getScannedRequestsPanel());
         panel1.add(cachePanel);
         mainPanel.add(panel1);
 
@@ -55,7 +56,7 @@ public class CacheUIHandler {
         subPanel1.add(wlistParamInput);
 
 
-        JPanel subPanel2 = UIUtil.GetYJPanel();
+        JPanel subPanel2 = UIUtil.GetXJPanel();
         wlistParamDisplay = new JTextArea(5,20);
         wlistParamDisplay.setMaximumSize(wlistParamDisplay.getPreferredSize());
         wlistParamDisplay.setLineWrap(true);
@@ -95,4 +96,44 @@ public class CacheUIHandler {
         return panel1;
     }
 
+    private JPanel getScannedRequestsPanel(){
+        JPanel panel1 = new JPanel();
+        panel1.setAlignmentX(0.0f);
+        panel1.setBorder(new EmptyBorder(10, 10, 10, 10));
+        panel1.setLayout(new BoxLayout(panel1, 1));
+
+        this.model = new RequestKeyModel(Cache.KEY_OF_REQUESTS);
+        JTable table = new JTable(model);
+        table.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
+        table.setAutoCreateRowSorter(true);
+        table.setFillsViewportHeight(true);
+
+        JScrollPane tableScrollPane = new JScrollPane(table);
+        tableScrollPane.setPreferredSize(new Dimension(250, 200));
+
+
+        JButton button = new JButton("delete");
+        button.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent arg0) {
+                // check for selected row first
+                if (table.getSelectedRow() != -1) {
+                    // remove selected row from the model
+                    model.deleteRow(table.convertRowIndexToModel(table.getSelectedRow()));
+                }
+                System.out.println("keys:  " +Cache.KEY_OF_REQUESTS.toString());
+            }
+        });
+
+        panel1.add(tableScrollPane);
+        panel1.add(button);
+
+
+
+        return panel1;
+    }
+
 }
+
+

@@ -15,6 +15,10 @@ import java.awt.*;
 public class Log4j2ScanUIHandler implements ITab {
     public JTabbedPane mainPanel;
     public BurpExtender parent;
+    public BackendUIHandler bui;
+    public POCUIHandler pui;
+    public FuzzUIHandler fui;
+    public CacheUIHandler cui;
 
     public Log4j2ScanUIHandler(BurpExtender parent) {
         this.parent = parent;
@@ -23,10 +27,10 @@ public class Log4j2ScanUIHandler implements ITab {
 
     private void initUI() {
         this.mainPanel = new JTabbedPane();
-        BackendUIHandler bui = new BackendUIHandler(parent);
-        POCUIHandler pui = new POCUIHandler(parent);
-        FuzzUIHandler fui = new FuzzUIHandler(parent);
-        CacheUIHandler cui = new CacheUIHandler(parent);
+        bui = new BackendUIHandler(parent);
+        pui = new POCUIHandler(parent);
+        fui = new FuzzUIHandler(parent);
+        cui = new CacheUIHandler(parent);
         this.mainPanel.addTab("Backend", bui.getPanel());
         this.mainPanel.addTab("POC", pui.getPanel());
         this.mainPanel.addTab("Fuzz", fui.getPanel());

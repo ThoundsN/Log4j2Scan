@@ -38,7 +38,6 @@ public class POCUIHandler {
 
         allPocs = Utils.getPOCs(pocRange);
         JScrollPane scrollPane = new JScrollPane();
-        scrollPane.setBounds(83, 132, 369, 213);
         mainPanel.add(scrollPane);
 
         pocList = new JList();

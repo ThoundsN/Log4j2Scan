@@ -1,6 +1,7 @@
 package burp;
 
 import burp.scanner.Log4j2Scanner;
+import burp.utils.Cache;
 import burp.utils.Utils;
 import burp.ui.Log4j2ScanUIHandler;
 
@@ -16,7 +17,8 @@ public class BurpExtender implements IBurpExtender,IExtensionStateListener  {
     public PrintWriter stderr;
     public Log4j2ScanUIHandler uiHandler;
     public Log4j2Scanner scanner;
-    public String version = "0.9.3";
+    public Cache cache;
+    public String version = "1.0";
 
 
     @Override
@@ -31,6 +33,7 @@ public class BurpExtender implements IBurpExtender,IExtensionStateListener  {
         this.stdout.println("Log4j2Scan v" + version);
         this.uiHandler = new Log4j2ScanUIHandler(this);
         callbacks.addSuiteTab(this.uiHandler);
+        this.cache = new Cache(this);
         this.reloadScanner();
 
     }
@@ -56,18 +59,21 @@ public class BurpExtender implements IBurpExtender,IExtensionStateListener  {
 
 //improve check logic
 
-//param whilte list
-//
-//tmpdomain: original requerst
-//tmpdomain: scanitem  ->  (request, iparameter)  ,(request, headername)
-//
-//
+
+
+//delete  scannedurls cache , only key url
+//check crazy fuzz to bypass wlist parameter
+
+
+
 
 
 //subdomain of hashed domain  done
-
 //add key cache to remove duplicate , host url parameter   done
 //backfix in path  done
+//param whilte list  done
 //use one single random domain for one request     done  not very useful
+//host whilelist  done
+
 
 

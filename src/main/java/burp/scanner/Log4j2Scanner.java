@@ -23,7 +23,6 @@ public class Log4j2Scanner implements IScannerCheck {
     public IBackend backend;
     private Config.FuzzMode fuzzMode;
 
-    private HashSet<String> scannedUrls;
     private HashSet<String> scannedCookies;
 
 //    private final String[] HEADER_WHITELIST = new String[]{
@@ -115,7 +114,6 @@ public class Log4j2Scanner implements IScannerCheck {
 //        this.backend = new DnslogCN();
         this.loadConfig();
 
-        this.scannedUrls = new HashSet<>();
         this.scannedCookies = new HashSet<>();
         if (this.backend.getState()) {
             parent.stdout.println("Log4j2Scan loaded successfully!\r\n");
@@ -134,13 +132,23 @@ public class Log4j2Scanner implements IScannerCheck {
     public List<IScanIssue> doPassiveScan(IHttpRequestResponse baseRequestResponse) {
         this.fuzzMode = Config.FuzzMode.valueOf(Config.get(Config.FUZZ_MODE, Config.FuzzMode.EachFuzz.name()));
         IRequestInfo req = this.parent.helpers.analyzeRequest(baseRequestResponse);
-        String key = Utils.getKeyOfRequest(req);
         List<IScanIssue> issues = new ArrayList<>();
 
-        if (scannedUrls.contains(key)){
+        for(String whitelistHost : Cache.HOST_WHITELIST){
+            if (req.getUrl().getHost().contains(whitelistHost)){
+                return issues;
+            }
+        }
+
+
+        String key = Utils.getKeyOfRequest(req);
+
+        if (Cache.KEY_OF_REQUESTS.keySet().contains(key)){
             return issues;
         }
-        this.scannedUrls.add(key);
+        parent.cache.addRequestKey(req);
+
+
         if (isStaticFile(req.getUrl().toString())){
             return issues;
         }
@@ -607,6 +615,7 @@ public class Log4j2Scanner implements IScannerCheck {
         } else {
             parent.stdout.println("get backend result failed!\r\n");
         }
+        parent.cache.updateRequestKey(req);
         return issues;
     }
 
