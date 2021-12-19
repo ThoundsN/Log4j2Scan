@@ -128,7 +128,7 @@ public class Utils {
 
     public static String getKeyOfRequest(IRequestInfo request){
         String method = request.getMethod();
-        String host = request.getUrl().getHost();
+        String url = request.getUrl().toString();
 //        List<IParameter> params =  request.getParameters();
 //        StringBuilder paramNameStr = new StringBuilder();
 //        for (IParameter param : params){
@@ -137,6 +137,6 @@ public class Utils {
 //            }
 //        }
 //        return method+":"+ host + paramNameStr.toString();
-        return method+":"+ host ;
+        return method+":"+ url ;
     }
 }

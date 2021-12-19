@@ -122,7 +122,7 @@ public class CacheUIHandler {
                     // remove selected row from the model
                     model.deleteRow(table.convertRowIndexToModel(table.getSelectedRow()));
                 }
-                System.out.println("keys:  " +Cache.KEY_OF_REQUESTS.toString());
+                parent.stdout.println("keys:  " +Cache.KEY_OF_REQUESTS.toString());
             }
         });
 
