@@ -7,11 +7,13 @@ import burp.utils.Config;
 import burp.utils.Utils;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
+import org.intellij.lang.annotations.JdkConstants;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 
 import java.awt.*;
+import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -21,7 +23,7 @@ public class POCUIHandler {
 
     private BurpExtender parent;
     private JPanel mainPanel;
-    private Integer[] pocRange = new Integer[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15};
+    private Integer[] pocRange = new Integer[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,14, 15,16};
     public static final Integer[] defaultEnabledPocIds = new Integer[]{1, 3, 12, 13, 15,16};
     private JList pocList;
     Map<Integer, IPOC> allPocs;
@@ -40,7 +42,27 @@ public class POCUIHandler {
         JScrollPane scrollPane = new JScrollPane();
         mainPanel.add(scrollPane);
 
-        pocList = new JList();
+        pocList = new JList(){
+
+            private boolean processEvent(MouseEvent e) {
+                int index = pocList.locationToIndex(e.getPoint());
+                return index > -1 && pocList.getCellBounds(index, index).contains(e.getPoint());
+            }
+
+            @Override
+            protected void processMouseEvent(MouseEvent e) {
+                if (processEvent(e)) {
+                    super.processMouseEvent(e);
+                }
+            }
+
+            @Override
+            protected void processMouseMotionEvent(MouseEvent e) {
+                if (processEvent(e)) {
+                    super.processMouseMotionEvent(e);
+                }
+            }
+        };
         scrollPane.setViewportView(pocList);
         pocList.setSelectionModel(new DefaultListSelectionModel() {
             @Override
@@ -65,6 +87,7 @@ public class POCUIHandler {
             JSONArray pocIds = new JSONArray();
             for (Map.Entry<Integer, IPOC> poc : ava_pocs) {
                 pocIds.add(poc.getKey());
+                parent.stdout.println("Enabled poc id: " + poc.getKey());
             }
             Config.set(Config.ENABLED_POC_IDS, pocIds.toJSONString());
             this.loadConfig();
