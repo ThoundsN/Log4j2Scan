@@ -52,13 +52,11 @@ public  class Cache {
             String[] paramNameArray = paramNameText.split("\\R");
             for(String paramName : paramNameArray){
                 PARAMNAME_WHITELIST.add(paramName.trim());
-                HEADER_WHITELIST.add(paramName.trim());
             }
             return;
         }
 
         PARAMNAME_WHITELIST.add(paramNameText.trim());
-        HEADER_WHITELIST.add(paramNameText.trim());
     }
 
     public static boolean inWhiteList(String paramName){

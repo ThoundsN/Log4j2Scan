@@ -132,7 +132,7 @@ public class Log4j2Scanner implements IScannerCheck {
         this.fuzzMode = Config.FuzzMode.valueOf(Config.get(Config.FUZZ_MODE, Config.FuzzMode.EachFuzz.name()));
         IRequestInfo req = this.parent.helpers.analyzeRequest(baseRequestResponse);
         List<IScanIssue> issues = new ArrayList<>();
-//        parent.stdout.println("do passive scan");
+        parent.stdout.println("do passive scan");
 
         for(String whitelistHost : Cache.HOST_WHITELIST){
             if (req.getUrl().getHost().contains(whitelistHost)){
@@ -145,7 +145,7 @@ public class Log4j2Scanner implements IScannerCheck {
         }
 
 
-        String key = Utils.getKeyOfRequest(req);
+//        String key = Utils.getKeyOfRequest(req);
 
 //        if (Cache.KEY_OF_REQUESTS.keySet().contains(key)){
 //            return issues;
@@ -271,46 +271,51 @@ public class Log4j2Scanner implements IScannerCheck {
                                 continue;
 
                         }
-                    for (IPOC poc : getSupportedPOCs()){
+                    for (IPOC poc : getSupportedPOCs()) {
 
-                        String payloadDomain = Utils.addPrefixTempDomain(typename + poc.getIndex(), tmpDomain);
-                        String exp = poc.generate(payloadDomain);
+                            String payloadDomain = Utils.addPrefixTempDomain(typename + poc.getIndex(), tmpDomain);
+                            String exp = poc.generate(payloadDomain);
 
-                    if (useIparam) {
-                        exp = helper.urlEncode(exp);
-                        exp = urlencodeForTomcat(exp);
-                        IParameter newParam = helper.buildParameter(exp, Utils.GetRandomString(4), paramtype);
-                        paramList.add(newParam);
-                        paramTypeMap.put(exp,typename);
+                            if (useIparam) {
+                                exp = helper.urlEncode(exp);
+                                exp = urlencodeForTomcat(exp);
+                                IParameter newParam = helper.buildParameter(exp, Utils.GetRandomString(4), paramtype);
+                                paramList.add(newParam);
+                                paramTypeMap.put(exp, typename);
 
-                    } else if(IsJson) {
-                        
-                        jsonMap.put(exp,Utils.GetRandomString(4));
+                            } else if (IsJson) {
 
-                    }
-            }       
-                    if(IsJson) {
-                            String jsonStr = helper.bytesToString(body);
-                            JSONObject jsonObject = JSONObject.parseObject(jsonStr);
-                            jsonObject.putAll(jsonMap);
-                            String newJsonStr = JSONObject.toJSONString(jsonObject);
-                            byte[] newBody = helper.stringToBytes(newJsonStr);
-                            tmpRawRequest = helper.buildHttpMessage(req.getHeaders(), newBody);
+                                jsonMap.put(exp, Utils.GetRandomString(4));
 
-                        }                
-                    for (IParameter param : paramList){
+                            }
+                        }
+                        if (IsJson) {
+                            try {
+                                String jsonStr = helper.bytesToString(body);
+                                JSONObject jsonObject = JSONObject.parseObject(jsonStr);
+                                jsonObject.putAll(jsonMap);
+                                String newJsonStr = JSONObject.toJSONString(jsonObject);
+                                byte[] newBody = helper.stringToBytes(newJsonStr);
+                                tmpRawRequest = helper.buildHttpMessage(req.getHeaders(), newBody);
+                            }catch (Exception  ex ){
+                                parent.stderr.println("body:  "+  helper.bytesToString(body));
+                                parent.stderr.println(ex);
+                                continue;
+                        }
+                        for (IParameter param : paramList) {
                             tmpRawRequest = helper.addParameter(tmpRawRequest, param);
 
                         }
 
 
-                    IHttpRequestResponse tmpReqRes = parent.callbacks.makeHttpRequest(baseRequestResponse.getHttpService(), tmpRawRequest);
+                        IHttpRequestResponse tmpReqRes = parent.callbacks.makeHttpRequest(baseRequestResponse.getHttpService(), tmpRawRequest);
                         tmpReqRes.getResponse();
 
 
-                    for (Map.Entry<String,String> entry: paramTypeMap.entrySet()){
-                            resultMap.put(entry.getKey(),new ScanItem(tmpReqRes,String.format("%s parameter name: %s", entry.getValue(), entry.getKey())));
+                        for (Map.Entry<String, String> entry : paramTypeMap.entrySet()) {
+                            resultMap.put(entry.getKey(), new ScanItem(tmpReqRes, String.format("%s parameter name: %s", entry.getValue(), entry.getKey())));
                         }
+                    }
                     }
         return resultMap;
 
@@ -332,7 +337,7 @@ public class Log4j2Scanner implements IScannerCheck {
                     List<String> guessHeaders = new ArrayList(Arrays.asList(HEADER_GUESS));
                     for (int i = 1; i < headers.size(); i++) {
                         HttpHeader header = new HttpHeader(headers.get(i));
-                        if (!Cache.HEADER_WHITELIST.stream().anyMatch(header.Name::equalsIgnoreCase)) {
+                        if (!Cache.HEADER_WHITELIST.stream().anyMatch(header.Name::equalsIgnoreCase) && !Cache.PARAMNAME_WHITELIST.stream().anyMatch(header.Name::equalsIgnoreCase)) {
                             List<String> needSkipheader = guessHeaders.stream().filter(h -> h.equalsIgnoreCase(header.Name)).collect(Collectors.toList());     //remove guessheader from existing headers
                             needSkipheader.forEach(guessHeaders::remove);
                             String tmpDomain = backend.getNewPayload();
@@ -508,7 +513,7 @@ public class Log4j2Scanner implements IScannerCheck {
 
         for (int i = 1; i < headers.size(); i++) {
             HttpHeader header = new HttpHeader(headers.get(i));
-            if (Cache.HEADER_WHITELIST.stream().anyMatch(header.Name::equalsIgnoreCase)) {
+            if (!Cache.HEADER_WHITELIST.stream().anyMatch(header.Name::equalsIgnoreCase) && !Cache.PARAMNAME_WHITELIST.stream().anyMatch(header.Name::equalsIgnoreCase)) {
                 //header is not cookie, host
                 List<String> needSkipheader = guessHeaders.stream().filter(h -> h.equalsIgnoreCase(header.Name)).collect(Collectors.toList());
                 needSkipheader.forEach(guessHeaders::remove);
@@ -753,7 +758,7 @@ public class Log4j2Scanner implements IScannerCheck {
                     this.backend = new RevSuitRMI();
                     break;
                 case GoDnslog:
-                    this.backend = new GoDnslog();
+                    this.backend = new GoDnslog(parent);
                     break;
                 case BurpCollaborator:
                     this.backend = new BurpCollaborator();

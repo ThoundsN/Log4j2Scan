@@ -1,5 +1,6 @@
 package burp.backend.platform;
 
+import burp.BurpExtender;
 import burp.backend.IBackend;
 import burp.poc.IPOC;
 import burp.utils.Config;
@@ -22,10 +23,12 @@ public class GoDnslog implements IBackend {
             callTimeout(3000, TimeUnit.SECONDS).build();
     String rootDomain;
     String token;
+    BurpExtender parent;
 
-    public GoDnslog() {
+    public GoDnslog(BurpExtender parent) {
         this.rootDomain = Config.get(Config.GODNSLOG_IDENTIFIER);
         this.token = Config.get(Config.GODNSLOG_TOKEN);
+        this.parent = parent;
     }
 
     public String getSign(String urlParam) {
@@ -68,7 +71,7 @@ public class GoDnslog implements IBackend {
                 return (((JSONArray) jObj.get("result")).size() > 0);
             }
         } catch (Exception ex) {
-            System.out.println(ex);
+            parent.stderr.println("godnslog check result error : \r\n" +ex);
             return false;
         }
         return false;

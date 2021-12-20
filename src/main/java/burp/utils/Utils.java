@@ -129,14 +129,14 @@ public class Utils {
     public static String getKeyOfRequest(IRequestInfo request){
         String method = request.getMethod();
         String url = request.getUrl().toString();
-//        List<IParameter> params =  request.getParameters();
-//        StringBuilder paramNameStr = new StringBuilder();
-//        for (IParameter param : params){
-//            if( param.getType() != IParameter.PARAM_COOKIE){
-//                paramNameStr.append('_' + param.getName());
-//            }
-//        }
+        List<IParameter> params =  request.getParameters();
+        StringBuilder paramNameStr = new StringBuilder();
+        for (IParameter param : params){
+            if( param.getType() == IParameter.PARAM_URL){
+                paramNameStr.append('_' + param.getName());
+            }
+        }
 //        return method+":"+ host + paramNameStr.toString();
-        return method+":"+ url ;
+        return method+":"+ url +  paramNameStr.toString();
     }
 }
