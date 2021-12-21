@@ -26,8 +26,8 @@ public class GoDnslog implements IBackend {
     BurpExtender parent;
 
     public GoDnslog(BurpExtender parent) {
-        this.rootDomain = Config.get(Config.GODNSLOG_IDENTIFIER);
-        this.token = Config.get(Config.GODNSLOG_TOKEN);
+        this.rootDomain = Config.get(Config.GODNSLOG_IDENTIFIER,"irpeeiv6ycae.ragnarokv.top");
+        this.token = Config.get(Config.GODNSLOG_TOKEN,"uz5koo240g2z8lt6ij7tj4ekbhxk9lzuibx7vvb854omlweu8ppw1vkfunh235ya");
         this.parent = parent;
     }
 
@@ -64,14 +64,16 @@ public class GoDnslog implements IBackend {
         String timeStamp = String.valueOf(System.currentTimeMillis() / 1000);
         String query = domain.toLowerCase().substring(0, domain.indexOf("."));
         String hash = getSign("q=" + query + "&t=" + timeStamp + "&blur=1");
+        String url = "http://" + rootDomain + "/data/dns?q=" + query + "&t=" + timeStamp + "&blur=1" + "&hash=" + hash;
         try {
-            Response resp = client.newCall(HttpUtils.GetDefaultRequest("http://" + rootDomain + "/data/dns?q=" + query + "&t=" + timeStamp + "&blur=1" + "&hash=" + hash).build()).execute();
+            Response resp = client.newCall(HttpUtils.GetDefaultRequest(url).build()).execute();
             JSONObject jObj = JSONObject.parseObject(resp.body().string().toLowerCase());
             if (jObj.containsKey("result")) {
                 return (((JSONArray) jObj.get("result")).size() > 0);
             }
         } catch (Exception ex) {
-            parent.stderr.println("godnslog check result error : \r\n" +ex);
+            parent.stderr.println("godnslog check result error : " +ex);
+            parent.stderr.println(url);
             return false;
         }
         return false;

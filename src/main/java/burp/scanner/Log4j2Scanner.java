@@ -101,8 +101,20 @@ public class Log4j2Scanner implements IScannerCheck {
             "docx",
             "ppt",
             "pptx",
-            "iso"
+            "iso",
+            "webm"
     };
+
+
+    private final String[] STATIC_FILE_TYPE = new String[]{
+            "image",
+            "gif",
+            "css",
+            "video",
+            "jpeg",
+            "script"
+    };
+
 
     private IPOC[] pocs;
 
@@ -128,11 +140,11 @@ public class Log4j2Scanner implements IScannerCheck {
     }
 
     @Override
-    public List<IScanIssue> doPassiveScan(IHttpRequestResponse baseRequestResponse) {
+    public List<IScanIssue> doActiveScan(IHttpRequestResponse baseRequestResponse,IScannerInsertionPoint insertionPoint) {
         this.fuzzMode = Config.FuzzMode.valueOf(Config.get(Config.FUZZ_MODE, Config.FuzzMode.EachFuzz.name()));
         IRequestInfo req = this.parent.helpers.analyzeRequest(baseRequestResponse);
         List<IScanIssue> issues = new ArrayList<>();
-        parent.stdout.println("do passive scan");
+        parent.stdout.println("do active scan: " +  req.getUrl().toString());
 
         for(String whitelistHost : Cache.HOST_WHITELIST){
             if (req.getUrl().getHost().contains(whitelistHost)){
@@ -140,16 +152,22 @@ public class Log4j2Scanner implements IScannerCheck {
             }
         }
 
-        if (isStaticFile(req.getUrl().toString())){
+        for(String wafHost : Cache.WAFHOST_WHITELIST){
+            if (req.getUrl().getHost().equalsIgnoreCase(wafHost)){
+                return issues;
+            }
+        }
+
+        if (isStaticFile(req.getUrl().toString(),baseRequestResponse)){
             return issues;
         }
 
 
-//        String key = Utils.getKeyOfRequest(req);
+        String key = Utils.getKeyOfRequest(req);
 
-//        if (Cache.KEY_OF_REQUESTS.keySet().contains(key)){
-//            return issues;
-//        }
+        if (Cache.KEY_OF_REQUESTS.keySet().contains(key)){
+            return issues;
+        }
 //      Use burp default audited items
         parent.cache.addRequestKey(req);
 
@@ -177,9 +195,8 @@ public class Log4j2Scanner implements IScannerCheck {
             resultMap.putAll(pathFuzz(baseRequestResponse,req));
             resultMap.putAll(paramNameFuzz(baseRequestResponse,req));
 
-
         }
-
+        Utils.checkWAF(resultMap,helper);
 
         try {
             Thread.sleep(3333); //sleep 3s, wait for network delay.
@@ -191,9 +208,17 @@ public class Log4j2Scanner implements IScannerCheck {
         return issues;
     }
 
-    private boolean isStaticFile(String url) {
-        return Arrays.stream(STATIC_FILE_EXT).anyMatch(s -> s.equalsIgnoreCase(HttpUtils.getUrlFileExt(url)));
+    private boolean isStaticFile(String url,IHttpRequestResponse baseRequestResponse) {
+        IResponseInfo resposne = this.parent.helpers.analyzeResponse(baseRequestResponse.getResponse());
+        String mimeType = resposne.getStatedMimeType();
+        Boolean b = Arrays.stream(STATIC_FILE_TYPE).anyMatch(s -> s.equalsIgnoreCase(mimeType));
+
+        Boolean a = Arrays.stream(STATIC_FILE_EXT).anyMatch(s -> s.equalsIgnoreCase(HttpUtils.getUrlFileExt(url)));
+
+        return a||b ;
+
     }
+
 
     private Collection<IPOC> getSupportedPOCs() {
         return Arrays.stream(pocs).filter(p -> Arrays.stream(backend.getSupportedPOCTypes()).anyMatch(c -> c == p.getType())).collect(Collectors.toList());
@@ -281,7 +306,7 @@ public class Log4j2Scanner implements IScannerCheck {
                                 exp = urlencodeForTomcat(exp);
                                 IParameter newParam = helper.buildParameter(exp, Utils.GetRandomString(4), paramtype);
                                 paramList.add(newParam);
-                                paramTypeMap.put(exp, typename);
+                                paramTypeMap.put(payloadDomain, typename);
 
                             } else if (IsJson) {
 
@@ -740,7 +765,7 @@ public class Log4j2Scanner implements IScannerCheck {
     }
 
     private void loadConfig() {
-        BackendUIHandler.Backends currentBackend = BackendUIHandler.Backends.valueOf(Config.get(Config.CURRENT_BACKEND, BackendUIHandler.Backends.BurpCollaborator.name()));
+        BackendUIHandler.Backends currentBackend = BackendUIHandler.Backends.valueOf(Config.get(Config.CURRENT_BACKEND, BackendUIHandler.Backends.GoDnslog.name()));
         JSONArray enabled_poc_ids = JSONArray.parseArray(Config.get(Config.ENABLED_POC_IDS, JSONObject.toJSONString(defaultEnabledPocIds)));
 
         try {
@@ -778,7 +803,7 @@ public class Log4j2Scanner implements IScannerCheck {
     }
 
     @Override
-    public List<IScanIssue> doActiveScan(IHttpRequestResponse baseRequestResponse, IScannerInsertionPoint insertionPoint) {
+    public List<IScanIssue> doPassiveScan(IHttpRequestResponse baseRequestResponse) {
         return null;
     }
 

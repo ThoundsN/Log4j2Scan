@@ -64,9 +64,12 @@ public class RequestKeyModel extends AbstractTableModel {
     }
 
     public void addRow(String keyOfRequest) {
-        keys.add(keyOfRequest);
-        bools.add(false);
-        fireTableRowsInserted(this.getRowCount() - 1, this.getRowCount() - 1);
+        if ( !keys.contains(keyOfRequest)){
+            keys.add(keyOfRequest);
+            bools.add(false);
+            fireTableRowsInserted(this.getRowCount() - 1, this.getRowCount() - 1);
+
+        }
     }
 
 

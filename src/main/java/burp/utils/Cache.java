@@ -13,6 +13,7 @@ public  class Cache {
     private BurpExtender parent;
 
     public static HashSet<String> PARAMNAME_WHITELIST = new HashSet<>();
+    public static HashSet<String> WAFHOST_WHITELIST = new HashSet<>();
     public static HashSet<String> HEADER_WHITELIST = new HashSet<>(Arrays.asList(
             "content-length",
             "cookie",

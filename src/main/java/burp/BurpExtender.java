@@ -28,7 +28,6 @@ public class BurpExtender implements IBurpExtender,IExtensionStateListener  {
         this.stdout = new PrintWriter(callbacks.getStdout(), true);
         this.stderr = new PrintWriter(callbacks.getStderr(), true);
         callbacks.registerScannerCheck(new Log4j2Scanner(this));
-        callbacks.setExtensionName("Log4j2Scan v" + version);
         callbacks.setExtensionName("Log4j2Scan");
         this.stdout.println("Log4j2Scan v" + version);
         this.uiHandler = new Log4j2ScanUIHandler(this);

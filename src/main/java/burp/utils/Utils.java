@@ -2,6 +2,7 @@ package burp.utils;
 
 
 import burp.IBurpExtenderCallbacks;
+import burp.IExtensionHelpers;
 import burp.IParameter;
 import burp.IRequestInfo;
 import burp.poc.IPOC;
@@ -129,6 +130,8 @@ public class Utils {
     public static String getKeyOfRequest(IRequestInfo request){
         String method = request.getMethod();
         String url = request.getUrl().toString();
+        String host = request.getUrl().getHost();
+        String path = request.getUrl().getPath();
         List<IParameter> params =  request.getParameters();
         StringBuilder paramNameStr = new StringBuilder();
         for (IParameter param : params){
@@ -137,6 +140,18 @@ public class Utils {
             }
         }
 //        return method+":"+ host + paramNameStr.toString();
-        return method+":"+ url +  paramNameStr.toString();
+        return method+":"+ host + path +  paramNameStr.toString();
+    }
+
+    public static Boolean checkWAF(Map<String,ScanItem> resultMap, IExtensionHelpers helpers){
+        Boolean hasWaf = true;
+        for (ScanItem item : resultMap.values()){
+            if (helpers.analyzeResponse(item.TmpRequest.getResponse()).getStatusCode() != 403 ){
+                hasWaf = false;
+            }
+
+        }
+        return hasWaf;
+
     }
 }
