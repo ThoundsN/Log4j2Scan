@@ -147,6 +147,8 @@ public class Log4j2Scanner implements IScannerCheck {
         this.fuzzMode = Config.FuzzMode.valueOf(Config.get(Config.FUZZ_MODE, Config.FuzzMode.EachFuzz.name()));
         IRequestInfo req = this.parent.helpers.analyzeRequest(baseRequestResponse);
         List<IScanIssue> issues = new ArrayList<>();
+        URL url = req.getUrl();
+        boolean isWafHost = false;
 //        parent.stdout.println("do active scan: " +  req.getUrl().toString());
 
         for(String whitelistHost : Cache.HOST_WHITELIST){
@@ -155,20 +157,21 @@ public class Log4j2Scanner implements IScannerCheck {
             }
         }
 
-        for(String wafHost : Cache.WAFHOST_WHITELIST){
-            if (req.getUrl().getHost().equalsIgnoreCase(wafHost)){
-                return issues;
-            }
-        }
-        URL url = req.getUrl();
-
         if (isStaticFile(url.toString(),baseRequestResponse)){
             return issues;
         }
 
+        for(String wafHost : Cache.WAFHOST_WHITELIST){
+            if (req.getUrl().getHost().equalsIgnoreCase(wafHost)){
+                if (req.getContentType() != IRequestInfo.CONTENT_TYPE_JSON){
+                    parent.stdout.println("Skiped waf host: "+ url.toString());
+                    return issues;
+                }
+                isWafHost = true;
+            }
+        }
 
         String key = Utils.getKeyOfRequest(req);
-
         if (Cache.KEY_OF_REQUESTS.keySet().contains(key)){
             return issues;
         }
@@ -184,12 +187,8 @@ public class Log4j2Scanner implements IScannerCheck {
         } else {
             ArrayList<String> urlList = TreeUtils.parseUrl(url);
             if (TreeUtils.isSubPathInteresting(urlList, ptrNode, ptrNode.depth  )) {
-
                 TreeUtils.addUrlToTree(Cache.rootNode, url);
 //                System.out.println(TreeUtils.parseUrl(url).toString() + " is interesting  , added to tree");
-//                System.out.println();
-
-
             } else {
 //                System.out.println(TreeUtils.parseUrl(url).toString() + " isn't interesting  ");
                 return issues;
@@ -201,26 +200,30 @@ public class Log4j2Scanner implements IScannerCheck {
         parent.stdout.println(String.format("Scanning: %s", url.toString()));
         Map<String, ScanItem> resultMap = new HashMap<>();
 
-
-        if (this.fuzzMode == Config.FuzzMode.EachFuzz) {
+        if(isWafHost){
+            resultMap.putAll(crazyFuzzJson(baseRequestResponse,req));
+        }
+        else if (this.fuzzMode == Config.FuzzMode.EachFuzz) {
             resultMap.putAll(IParameterFuzz(baseRequestResponse, req));
             if (Config.getBoolean(Config.ENABLED_FUZZ_HEADER, true)) {
                 resultMap.putAll(headersFuzz(baseRequestResponse, req));
             }
             resultMap.putAll(pathFuzz(baseRequestResponse,req));
             resultMap.putAll(paramNameFuzz(baseRequestResponse,req));
+            Utils.checkWAF(resultMap,helper);
+
         }
-
-
-        if (this.fuzzMode == Config.FuzzMode.Crazy) {
+        else if (this.fuzzMode == Config.FuzzMode.Crazy) {
             resultMap.putAll(crazyFuzzIParam(baseRequestResponse, req));
             resultMap.putAll(crazyFuzzHeader(baseRequestResponse, req));
             resultMap.putAll(crazyFuzzCookie(baseRequestResponse, req));
             resultMap.putAll(pathFuzz(baseRequestResponse,req));
             resultMap.putAll(paramNameFuzz(baseRequestResponse,req));
+            Utils.checkWAF(resultMap,helper);
 
+            resultMap.putAll(crazyFuzzJson(baseRequestResponse,req));
         }
-        Utils.checkWAF(resultMap,helper);
+
 
         try {
             Thread.sleep(3333); //sleep 3s, wait for network delay.
@@ -455,6 +458,46 @@ public class Log4j2Scanner implements IScannerCheck {
             return resultMap;
     }
 
+
+    private Map<String, ScanItem> crazyFuzzJson(IHttpRequestResponse baseRequestResponse, IRequestInfo req) {
+        Map<String, ScanItem> resultMap = new HashMap<>();
+        if(helper.analyzeRequest(baseRequestResponse).getContentType() !=  IRequestInfo.CONTENT_TYPE_JSON){
+            return resultMap;
+        }
+        String tmpDomain = backend.getNewPayload();
+        byte[] rawRequest = baseRequestResponse.getRequest();
+        byte[] tmpRawRequest = rawRequest;
+        byte[] rawBody = Arrays.copyOfRange(rawRequest, req.getBodyOffset(), rawRequest.length);
+        int skipLength = 0;
+        int paramsIndex = 0;
+        Map<Integer, ParamReplace> paramMap = new HashMap<>();
+        Map<String, IParameter> domainParamMap = new HashMap<>();
+        for (IParameter param : req.getParameters()) {
+            if (Cache.inWhiteList(param.getName()) ||param.getType() != IParameter.PARAM_JSON) {
+                continue;
+            }
+            try{
+                String expDomain = Utils.addPrefixTempDomain(param.getName()+"0",tmpDomain);
+                String exp = POC0.generate(expDomain);
+                paramMap.put(paramsIndex++, new ParamReplace(
+                        param.getValueStart() - req.getBodyOffset() + skipLength,
+                        param.getValueEnd() - req.getBodyOffset() + skipLength,
+                        exp));
+                skipLength += exp.length() - (param.getValueEnd() - param.getValueStart());
+                domainParamMap.put(expDomain, param);
+            }catch (Exception ex){
+                parent.stdout.println(ex);
+            }
+
+        }
+        tmpRawRequest = helper.buildHttpMessage(helper.analyzeRequest(tmpRawRequest).getHeaders(), updateParams(rawBody, paramMap));
+        IHttpRequestResponse tmpReq = parent.callbacks.makeHttpRequest(baseRequestResponse.getHttpService(), tmpRawRequest);
+        for (Map.Entry<String, IParameter> domainParam : domainParamMap.entrySet()) {
+            resultMap.put(domainParam.getKey(), new ScanItem(domainParam.getValue(), tmpReq));
+        }
+
+        return resultMap;
+    }
 
 
     private Map<String, ScanItem> crazyFuzzIParam(IHttpRequestResponse baseRequestResponse, IRequestInfo req) {
