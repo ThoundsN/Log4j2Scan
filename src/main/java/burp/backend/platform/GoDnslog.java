@@ -24,6 +24,7 @@ public class GoDnslog implements IBackend {
     String rootDomain;
     String token;
     BurpExtender parent;
+    String checkDomain = "www.ragnarokv.top";
 
     public GoDnslog(BurpExtender parent) {
         this.rootDomain = Config.get(Config.GODNSLOG_IDENTIFIER,"irpeeiv6ycae.ragnarokv.top");
@@ -64,7 +65,7 @@ public class GoDnslog implements IBackend {
         String timeStamp = String.valueOf(System.currentTimeMillis() / 1000);
         String query = domain.toLowerCase().substring(0, domain.indexOf("."));
         String hash = getSign("q=" + query + "&t=" + timeStamp + "&blur=1");
-        String url = "http://" + rootDomain + "/data/dns?q=" + query + "&t=" + timeStamp + "&blur=1" + "&hash=" + hash;
+        String url = "http://" + checkDomain + "/data/dns?q=" + query + "&t=" + timeStamp + "&blur=1" + "&hash=" + hash;
         try {
             Response resp = client.newCall(HttpUtils.GetDefaultRequest(url).build()).execute();
             JSONObject jObj = JSONObject.parseObject(resp.body().string().toLowerCase());
