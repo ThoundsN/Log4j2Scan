@@ -27,6 +27,8 @@ public  class Cache {
             ".gov"));
 
     public static HashMap<String,Boolean> KEY_OF_REQUESTS = new HashMap<String, Boolean>();
+    public static TreeNode<String> rootNode = new TreeNode<>("");
+
 
 
     public Cache(BurpExtender parent){

@@ -12,6 +12,9 @@ import com.alibaba.fastjson.JSONObject;
 
 import static burp.ui.tabs.POCUIHandler.defaultEnabledPocIds;
 
+import burp.utils.TreeUtils.*;
+
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -144,7 +147,7 @@ public class Log4j2Scanner implements IScannerCheck {
         this.fuzzMode = Config.FuzzMode.valueOf(Config.get(Config.FUZZ_MODE, Config.FuzzMode.EachFuzz.name()));
         IRequestInfo req = this.parent.helpers.analyzeRequest(baseRequestResponse);
         List<IScanIssue> issues = new ArrayList<>();
-        parent.stdout.println("do active scan: " +  req.getUrl().toString());
+//        parent.stdout.println("do active scan: " +  req.getUrl().toString());
 
         for(String whitelistHost : Cache.HOST_WHITELIST){
             if (req.getUrl().getHost().contains(whitelistHost)){
@@ -157,8 +160,9 @@ public class Log4j2Scanner implements IScannerCheck {
                 return issues;
             }
         }
+        URL url = req.getUrl();
 
-        if (isStaticFile(req.getUrl().toString(),baseRequestResponse)){
+        if (isStaticFile(url.toString(),baseRequestResponse)){
             return issues;
         }
 
@@ -168,13 +172,33 @@ public class Log4j2Scanner implements IScannerCheck {
         if (Cache.KEY_OF_REQUESTS.keySet().contains(key)){
             return issues;
         }
-//      Use burp default audited items
+
+        if (!TreeUtils.isUrlHostInTree(Cache.rootNode, url)) {
+            TreeUtils.addUrlToTree(Cache.rootNode, url);
+            System.out.println(TreeUtils.parseUrl(url).toString() + "   not in tree, adding it  ");
+        }
+        TreeNode<String> ptrNode = TreeUtils.searchUrlSegmentInTree(Cache.rootNode, url);
+        if (ptrNode == null) {
+//            System.out.println(TreeUtils.parseUrl(url).toString() + " already in tree ");
+            return  issues;
+        } else {
+            ArrayList<String> urlList = TreeUtils.parseUrl(url);
+            if (TreeUtils.isSubPathInteresting(urlList, ptrNode, ptrNode.depth  )) {
+
+                TreeUtils.addUrlToTree(Cache.rootNode, url);
+//                System.out.println(TreeUtils.parseUrl(url).toString() + " is interesting  , added to tree");
+//                System.out.println();
+
+
+            } else {
+//                System.out.println(TreeUtils.parseUrl(url).toString() + " isn't interesting  ");
+                return issues;
+            }}
+
+        //Started scanning
         parent.cache.addRequestKey(req);
 
-
-
-
-        parent.stdout.println(String.format("Scanning: %s", req.getUrl().toString()));
+        parent.stdout.println(String.format("Scanning: %s", url.toString()));
         Map<String, ScanItem> resultMap = new HashMap<>();
 
 
@@ -204,7 +228,7 @@ public class Log4j2Scanner implements IScannerCheck {
             parent.stdout.println(e);
         }
         issues.addAll(finalCheck(baseRequestResponse, req, resultMap));
-        parent.stdout.println(String.format("Scan complete: %s", req.getUrl()));
+        parent.stdout.println(String.format("Scan complete: %s", url));
         return issues;
     }
 

@@ -18,7 +18,7 @@ public class BurpExtender implements IBurpExtender,IExtensionStateListener  {
     public Log4j2ScanUIHandler uiHandler;
     public Log4j2Scanner scanner;
     public Cache cache;
-    public String version = "1.1";
+    public String version = "1.2";
 
 
     @Override
