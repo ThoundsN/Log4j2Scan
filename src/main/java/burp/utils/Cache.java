@@ -18,13 +18,15 @@ public  class Cache {
             "content-length",
             "cookie",
             "host",
-            "content-type"));
+            "content-type",
+            "Authorization"));
     public static HashSet<String> HOST_WHITELIST = new HashSet<>(Arrays.asList(
             "alipay",
             "google-analytics",
             "recaptcha",
             "intercom",
-            ".gov"));
+            ".gov",
+            "youtube"));
 
     public static HashMap<String,Boolean> KEY_OF_REQUESTS = new HashMap<String, Boolean>();
     public static TreeNode<String> rootNode = new TreeNode<>("");

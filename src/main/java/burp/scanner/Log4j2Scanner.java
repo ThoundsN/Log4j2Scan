@@ -105,7 +105,8 @@ public class Log4j2Scanner implements IScannerCheck {
             "ppt",
             "pptx",
             "iso",
-            "webm"
+            "webm",
+            "webm2"
     };
 
 
@@ -178,21 +179,23 @@ public class Log4j2Scanner implements IScannerCheck {
 
         if (!TreeUtils.isUrlHostInTree(Cache.rootNode, url)) {
             TreeUtils.addUrlToTree(Cache.rootNode, url);
-            System.out.println(TreeUtils.parseUrl(url).toString() + "   not in tree, adding it  ");
-        }
-        TreeNode<String> ptrNode = TreeUtils.searchUrlSegmentInTree(Cache.rootNode, url);
-        if (ptrNode == null) {
-//            System.out.println(TreeUtils.parseUrl(url).toString() + " already in tree ");
-            return  issues;
-        } else {
-            ArrayList<String> urlList = TreeUtils.parseUrl(url);
-            if (TreeUtils.isSubPathInteresting(urlList, ptrNode, ptrNode.depth  )) {
-                TreeUtils.addUrlToTree(Cache.rootNode, url);
-//                System.out.println(TreeUtils.parseUrl(url).toString() + " is interesting  , added to tree");
-            } else {
-//                System.out.println(TreeUtils.parseUrl(url).toString() + " isn't interesting  ");
+            parent.stdout.println(TreeUtils.parseUrl(url).toString() + "   not in tree, adding it  ");
+        }else {
+            TreeNode<String> ptrNode = TreeUtils.searchUrlSegmentInTree(Cache.rootNode, url);
+            if (ptrNode == null) {
+                parent.stdout.println(TreeUtils.parseUrl(url).toString() + " already in tree ");
                 return issues;
-            }}
+            } else {
+                ArrayList<String> urlList = TreeUtils.parseUrl(url);
+                if (TreeUtils.isSubPathInteresting(urlList, ptrNode, ptrNode.depth)) {
+                    TreeUtils.addUrlToTree(Cache.rootNode, url);
+                    parent.stdout.println(TreeUtils.parseUrl(url).toString() + " is interesting  , added to tree");
+                } else {
+                    parent.stdout.println(TreeUtils.parseUrl(url).toString() + " isn't interesting  ");
+                    return issues;
+                }
+            }
+        }
 
         //Started scanning
         parent.cache.addRequestKey(req);
@@ -220,6 +223,8 @@ public class Log4j2Scanner implements IScannerCheck {
             resultMap.putAll(pathFuzz(baseRequestResponse,req));
             resultMap.putAll(paramNameFuzz(baseRequestResponse,req));
             Utils.checkWAF(resultMap,helper);
+            resultMap.putAll(badJsonFuzz(baseRequestResponse,req));
+
 
             resultMap.putAll(crazyFuzzJson(baseRequestResponse,req));
         }
@@ -251,11 +256,43 @@ public class Log4j2Scanner implements IScannerCheck {
         return Arrays.stream(pocs).filter(p -> Arrays.stream(backend.getSupportedPOCTypes()).anyMatch(c -> c == p.getType())).collect(Collectors.toList());
     }
 
+
+    private Map<String, ScanItem> badJsonFuzz(IHttpRequestResponse baseRequestResponse, IRequestInfo req) {
+        Map<String, ScanItem> domainMap = new HashMap<>();
+        boolean canFuzz = false;
+        List<String> rawHeaders = req.getHeaders();
+        List<String> tmpHeaders = new ArrayList<>(rawHeaders);
+        for (int i = 1; i < rawHeaders.size(); i++) {
+            HttpHeader header = new HttpHeader(rawHeaders.get(i));
+            if (header.Name.equalsIgnoreCase("content-type")) {  //has content-type header, maybe accept application/json?
+                header.Value = "application/json;charset=UTF-8";
+                tmpHeaders.set(i, header.toString());
+                canFuzz = true;
+            }
+        }
+        if (canFuzz) {
+            for (IPOC poc : getSupportedPOCs()) {
+                String tmpDomain = backend.getNewPayload();
+                String exp = poc.generate(tmpDomain);
+                String finalPaylad = String.format("{\"%s\":%d%s%d}",   //try to create a bad-json.
+                        Utils.GetRandomString(Utils.GetRandomNumber(3, 10)),
+                        Utils.GetRandomNumber(100, Integer.MAX_VALUE),
+                        exp,
+                        Utils.GetRandomNumber(100, Integer.MAX_VALUE));
+                IParameter fakeParam = helper.buildParameter("Bad-json Fuzz", exp, IParameter.PARAM_JSON);
+                byte[] newRequest = helper.buildHttpMessage(tmpHeaders, finalPaylad.getBytes(StandardCharsets.UTF_8));
+                IHttpRequestResponse tmpReq = parent.callbacks.makeHttpRequest(baseRequestResponse.getHttpService(), newRequest);
+                domainMap.put(tmpDomain, new ScanItem(fakeParam, tmpReq));
+            }
+        }
+        return domainMap;
+    }
+
     private Map<String, ScanItem> pathFuzz(IHttpRequestResponse baseRequestResponse, IRequestInfo req) {
         Map<String, ScanItem> resultMap = new HashMap<>();
 
         String tmpDomain = backend.getNewPayload();
-
+        String payload = "";
 
             for (IPOC poc : getSupportedPOCs()) {
                 try {
@@ -264,15 +301,17 @@ public class Log4j2Scanner implements IScannerCheck {
                 String exp = poc.generate(payloadDomain);
                 exp = helper.urlEncode(exp);
                 exp = urlencodeForTomcat(exp);
-                String path = req.getUrl().getPath();
-                byte[] rawpayloadReq = helper.stringToBytes(helper.bytesToString(baseRequestResponse.getRequest()).replace(path, path + '/' + exp));
-                IHttpRequestResponse requestResponse = parent.callbacks.makeHttpRequest(baseRequestResponse.getHttpService(), rawpayloadReq);
-                resultMap.put(payloadDomain, new ScanItem(requestResponse, "backfix path "));
+                payload = "/"+exp+ payload;
+
                 } catch (Exception ex) {
-                    parent.stderr.println(ex);
+                    parent.stderr.println(ex.getStackTrace());
             }
 
         }
+        String path = req.getUrl().getPath();
+        byte[] rawpayloadReq = helper.stringToBytes(helper.bytesToString(baseRequestResponse.getRequest()).replace(path, path + payload));
+        IHttpRequestResponse requestResponse = parent.callbacks.makeHttpRequest(baseRequestResponse.getHttpService(), rawpayloadReq);
+        resultMap.put(tmpDomain, new ScanItem(requestResponse, "backfix path fuzz"));
         return resultMap;
 
     }
@@ -351,7 +390,7 @@ public class Log4j2Scanner implements IScannerCheck {
                                 tmpRawRequest = helper.buildHttpMessage(req.getHeaders(), newBody);
                             }catch (Exception  ex ){
                                 parent.stderr.println("body:  "+  helper.bytesToString(body));
-                                parent.stderr.println(ex);
+                                parent.stderr.println(ex.getStackTrace());;
                                 continue;
                         }
                         for (IParameter param : paramList) {
@@ -414,7 +453,7 @@ public class Log4j2Scanner implements IScannerCheck {
                     resultMap.put(domainHeader.getValue(), new ScanItem(domainHeader.getKey(), tmpReq));
                 }
             }catch (Exception ex ){
-                parent.stderr.println(ex);
+                parent.stderr.println(ex.getStackTrace());;
             }
         }
 
@@ -450,7 +489,7 @@ public class Log4j2Scanner implements IScannerCheck {
                 }
 
                 }catch (Exception ex){
-                parent.stderr.println(ex);
+                parent.stderr.println(ex.getStackTrace());
             }
         }
 
