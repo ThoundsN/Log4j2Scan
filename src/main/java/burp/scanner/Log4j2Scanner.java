@@ -126,7 +126,6 @@ public class Log4j2Scanner implements IScannerCheck {
         this.parent = newParent;
         this.helper = newParent.helpers;
         this.pocs = new IPOC[]{new POC1(), new POC2(), new POC3(), new POC4(), new POC11()};
-//        this.backend = new DnslogCN();
         this.loadConfig();
 
         this.scannedCookies = new HashSet<>();
@@ -177,24 +176,28 @@ public class Log4j2Scanner implements IScannerCheck {
             return issues;
         }
 
-        if (!TreeUtils.isUrlHostInTree(Cache.rootNode, url)) {
-            TreeUtils.addUrlToTree(Cache.rootNode, url);
-            parent.stdout.println(TreeUtils.parseUrl(url).toString() + "   not in tree, adding it  ");
-        }else {
-            TreeNode<String> ptrNode = TreeUtils.searchUrlSegmentInTree(Cache.rootNode, url);
-            if (ptrNode == null) {
-                parent.stdout.println(TreeUtils.parseUrl(url).toString() + " already in tree ");
-                return issues;
+        try {
+            if (!TreeUtils.isUrlHostInTree(Cache.rootNode, url)) {
+                TreeUtils.addUrlToTree(Cache.rootNode, url);
+                parent.stdout.println(TreeUtils.parseUrl(url).toString() + "   not in tree, adding it  ");
             } else {
-                ArrayList<String> urlList = TreeUtils.parseUrl(url);
-                if (TreeUtils.isSubPathInteresting(urlList, ptrNode, ptrNode.depth)) {
-                    TreeUtils.addUrlToTree(Cache.rootNode, url);
-                    parent.stdout.println(TreeUtils.parseUrl(url).toString() + " is interesting  , added to tree");
-                } else {
-                    parent.stdout.println(TreeUtils.parseUrl(url).toString() + " isn't interesting  ");
+                TreeNode<String> ptrNode = TreeUtils.searchUrlSegmentInTree(Cache.rootNode, url);
+                if (ptrNode == null) {
+                    parent.stdout.println(TreeUtils.parseUrl(url).toString() + " already in tree ");
                     return issues;
+                } else {
+                    ArrayList<String> urlList = TreeUtils.parseUrl(url);
+                    if (TreeUtils.isSubPathInteresting(urlList, ptrNode, ptrNode.depth)) {
+                        TreeUtils.addUrlToTree(Cache.rootNode, url);
+                        parent.stdout.println(TreeUtils.parseUrl(url).toString() + " is interesting  , added to tree");
+                    } else {
+                        parent.stdout.println(TreeUtils.parseUrl(url).toString() + " isn't interesting  ");
+                        return issues;
+                    }
                 }
             }
+        }catch (Exception ex){
+            parent.stdout.println(ex.getStackTrace());
         }
 
         //Started scanning
@@ -223,9 +226,8 @@ public class Log4j2Scanner implements IScannerCheck {
             resultMap.putAll(pathFuzz(baseRequestResponse,req));
             resultMap.putAll(paramNameFuzz(baseRequestResponse,req));
             Utils.checkWAF(resultMap,helper);
+
             resultMap.putAll(badJsonFuzz(baseRequestResponse,req));
-
-
             resultMap.putAll(crazyFuzzJson(baseRequestResponse,req));
         }
 
@@ -299,17 +301,21 @@ public class Log4j2Scanner implements IScannerCheck {
                 //backfixpath
                 String payloadDomain = Utils.addPrefixTempDomain("path" + poc.getIndex(), tmpDomain);
                 String exp = poc.generate(payloadDomain);
+                if(poc.getType() == IPOC.UNICODE){
+                    exp = Utils.unicodeReplace(exp);
+                }
                 exp = helper.urlEncode(exp);
                 exp = urlencodeForTomcat(exp);
                 payload = "/"+exp+ payload;
 
                 } catch (Exception ex) {
-                    parent.stderr.println(ex.getStackTrace());
+                    parent.stdout.println(ex.getStackTrace());
             }
 
         }
         String path = req.getUrl().getPath();
         byte[] rawpayloadReq = helper.stringToBytes(helper.bytesToString(baseRequestResponse.getRequest()).replace(path, path + payload));
+        rawpayloadReq = Utils.unicodeRestore(rawpayloadReq);
         IHttpRequestResponse requestResponse = parent.callbacks.makeHttpRequest(baseRequestResponse.getHttpService(), rawpayloadReq);
         resultMap.put(tmpDomain, new ScanItem(requestResponse, "backfix path fuzz"));
         return resultMap;
@@ -367,6 +373,10 @@ public class Log4j2Scanner implements IScannerCheck {
                             String payloadDomain = Utils.addPrefixTempDomain(typename + poc.getIndex(), tmpDomain);
                             String exp = poc.generate(payloadDomain);
 
+                        if(poc.getType() == IPOC.UNICODE){
+                            exp = Utils.unicodeReplace(exp);
+                        }
+
                             if (useIparam) {
                                 exp = helper.urlEncode(exp);
                                 exp = urlencodeForTomcat(exp);
@@ -389,8 +399,8 @@ public class Log4j2Scanner implements IScannerCheck {
                                 byte[] newBody = helper.stringToBytes(newJsonStr);
                                 tmpRawRequest = helper.buildHttpMessage(req.getHeaders(), newBody);
                             }catch (Exception  ex ){
-                                parent.stderr.println("body:  "+  helper.bytesToString(body));
-                                parent.stderr.println(ex.getStackTrace());;
+                                parent.stdout.println("body:  "+  helper.bytesToString(body));
+                                parent.stdout.println(ex.getStackTrace());;
                                 continue;
                         }
                         for (IParameter param : paramList) {
@@ -398,7 +408,7 @@ public class Log4j2Scanner implements IScannerCheck {
 
                         }
 
-
+                        tmpRawRequest = Utils.unicodeRestore(tmpRawRequest);
                         IHttpRequestResponse tmpReqRes = parent.callbacks.makeHttpRequest(baseRequestResponse.getHttpService(), tmpRawRequest);
                         tmpReqRes.getResponse();
 
@@ -432,7 +442,11 @@ public class Log4j2Scanner implements IScannerCheck {
                             List<String> needSkipheader = guessHeaders.stream().filter(h -> h.equalsIgnoreCase(header.Name)).collect(Collectors.toList());     //remove guessheader from existing headers
                             needSkipheader.forEach(guessHeaders::remove);
                             String tmpDomain = backend.getNewPayload();
-                            header.Value = poc.generate(tmpDomain);
+                            if (poc.getType() == IPOC.UNICODE){
+                                header.Value = Utils.unicodeReplace(poc.generate(tmpDomain));
+                            }else{
+                                header.Value = poc.generate(tmpDomain);
+                            }
                             if (header.Name.equalsIgnoreCase("accept")) {
                                 header.Value = "*/*;" + header.Value;
                             }
@@ -442,18 +456,27 @@ public class Log4j2Scanner implements IScannerCheck {
                     }
                     for (String headerName : guessHeaders) {
                         String tmpDomain = backend.getNewPayload();
-                        tmpHeaders.add(String.format("%s: %s", headerName, poc.generate(tmpDomain)));
+                        String exp = poc.generate(tmpDomain);
+                        if (poc.getType() == IPOC.UNICODE){
+                            exp = Utils.unicodeReplace(poc.generate(tmpDomain));
+                        }
+                        tmpHeaders.add(String.format("%s: %s", headerName, exp));
                         domainHeaderMap.put(headerName, tmpDomain);
                     }
                 }
                 tmpRawRequest = parent.helpers.buildHttpMessage(tmpHeaders, rawBody);
 
+                if(poc.getType() == IPOC.UNICODE){
+                    tmpRawRequest = Utils.unicodeRestore(tmpRawRequest);
+                }
                 IHttpRequestResponse tmpReq = parent.callbacks.makeHttpRequest(baseRequestResponse.getHttpService(), tmpRawRequest);
+
+
                 for (Map.Entry<String, String> domainHeader : domainHeaderMap.entrySet()) {
                     resultMap.put(domainHeader.getValue(), new ScanItem(domainHeader.getKey(), tmpReq));
                 }
             }catch (Exception ex ){
-                parent.stderr.println(ex.getStackTrace());;
+                parent.stdout.println(ex.getStackTrace());;
             }
         }
 
@@ -473,6 +496,9 @@ public class Log4j2Scanner implements IScannerCheck {
                     }
                     String tmpDomain = backend.getNewPayload();
                     String exp = poc.generate(tmpDomain);
+                    if (poc.getType() == IPOC.UNICODE){
+                        exp = Utils.unicodeReplace(exp);
+                    }
                     if (param.getType() == IParameter.PARAM_COOKIE){
                         exp = helper.urlEncode(exp);
                         exp = urlencodeForTomcat(exp);
@@ -482,6 +508,10 @@ public class Log4j2Scanner implements IScannerCheck {
 
                     }
                 }
+                if(poc.getType() == IPOC.UNICODE){
+                    tmpRawRequest = Utils.unicodeRestore(tmpRawRequest);
+                }
+
 
                 IHttpRequestResponse tmpReq = parent.callbacks.makeHttpRequest(baseRequestResponse.getHttpService(), tmpRawRequest);
                 for (Map.Entry<String, IParameter> domainParam : domainParamMap.entrySet()) {
@@ -489,7 +519,7 @@ public class Log4j2Scanner implements IScannerCheck {
                 }
 
                 }catch (Exception ex){
-                parent.stderr.println(ex.getStackTrace());
+                parent.stdout.println(ex.getStackTrace());
             }
         }
 
@@ -558,6 +588,10 @@ public class Log4j2Scanner implements IScannerCheck {
                     }
                     String tmpDomain = backend.getNewPayload();
                     String exp = poc.generate(tmpDomain);
+
+                    if(poc.getType() == IPOC.UNICODE){
+                        exp = Utils.unicodeReplace(exp);
+                    }
                     boolean UseIparam = false;
                     switch (param.getType()) {
                         case IParameter.PARAM_URL:
@@ -608,6 +642,9 @@ public class Log4j2Scanner implements IScannerCheck {
                     domainParamMap.put(tmpDomain, param);
                 }
                 tmpRawRequest = helper.buildHttpMessage(helper.analyzeRequest(tmpRawRequest).getHeaders(), updateParams(rawBody, paramMap));
+                if(poc.getType() == IPOC.UNICODE){
+                    tmpRawRequest = Utils.unicodeRestore(tmpRawRequest);
+                }
                 IHttpRequestResponse tmpReq = parent.callbacks.makeHttpRequest(baseRequestResponse.getHttpService(), tmpRawRequest);
                 for (Map.Entry<String, IParameter> domainParam : domainParamMap.entrySet()) {
                     resultMap.put(domainParam.getKey(), new ScanItem(domainParam.getValue(), tmpReq));
@@ -652,12 +689,19 @@ public class Log4j2Scanner implements IScannerCheck {
                 String tmpDomain = backend.getNewPayload();
                 String payloadDomain = Utils.addPrefixTempDomain(header.Name,tmpDomain);
                 for (IPOC poc : getSupportedPOCs()) {
+
                     List<String> tmpHeaders = new ArrayList<>(headers);
 
                     header.Value = poc.generate(payloadDomain);  //exp
+                    if(poc.getType() == IPOC.UNICODE){
+                        header.Value = Utils.unicodeReplace(header.Value);
+                    }
 
                     tmpHeaders.set(i, header.toString());
                     byte[] tmpRawRequest = helper.buildHttpMessage(tmpHeaders, Arrays.copyOfRange(rawRequest, req.getBodyOffset(), rawRequest.length));
+                    if(poc.getType() == IPOC.UNICODE){
+                        tmpRawRequest = Utils.unicodeRestore(tmpRawRequest);
+                    }
                     IHttpRequestResponse tmpReq = parent.callbacks.makeHttpRequest(baseRequestResponse.getHttpService(), tmpRawRequest);
                     resultMap.put(payloadDomain, new ScanItem(header.Name, tmpReq));
                 }
@@ -680,11 +724,17 @@ public class Log4j2Scanner implements IScannerCheck {
             Map<String, String> domainHeaderMap = new HashMap<>();
             for (String headerName : guessHeaders) {
                 String payloadDomain = Utils.addPrefixTempDomain(headerName+poc.getIndex(),tmpDomain);
+                if(poc.getType() == IPOC.UNICODE){
+                    payloadDomain = Utils.unicodeReplace(payloadDomain);
+                }
 
                 tmpHeaders.add(String.format("%s: %s", headerName, poc.generate(payloadDomain)));
                 domainHeaderMap.put(headerName, payloadDomain);
             }
             byte[] tmpRawRequest = helper.buildHttpMessage(tmpHeaders, Arrays.copyOfRange(rawRequest, req.getBodyOffset(), rawRequest.length));
+            if(poc.getType() == IPOC.UNICODE){
+                tmpRawRequest = Utils.unicodeRestore(tmpRawRequest);
+            }
             IHttpRequestResponse tmpReq = parent.callbacks.makeHttpRequest(baseRequestResponse.getHttpService(), tmpRawRequest);
             for (Map.Entry<String, String> domainHeader : domainHeaderMap.entrySet()) {
                 resultMap.put(domainHeader.getValue(), new ScanItem(domainHeader.getKey(), tmpReq));
@@ -740,6 +790,10 @@ public class Log4j2Scanner implements IScannerCheck {
 
                     String exp = poc.generate(payloadDomain);
 
+                    if(poc.getType() == IPOC.UNICODE){
+                        exp = Utils.unicodeReplace(exp);
+                    }
+
                     switch (param.getType()) {
                         case IParameter.PARAM_URL:
                             if (!Config.getBoolean(Config.ENABLED_FUZZ_URL, true))
@@ -789,7 +843,9 @@ public class Log4j2Scanner implements IScannerCheck {
                         byte[] newBody = Utils.Replace(body, new int[]{param.getValueStart() - req.getBodyOffset(), param.getValueEnd() - req.getBodyOffset()}, exp.getBytes(StandardCharsets.UTF_8));
                         tmpRawRequest = helper.buildHttpMessage(req.getHeaders(), newBody);
                     }
-
+                    if(poc.getType() == IPOC.UNICODE){
+                        tmpRawRequest = Utils.unicodeRestore(tmpRawRequest);
+                    }
                     IHttpRequestResponse tmpReq = parent.callbacks.makeHttpRequest(baseRequestResponse.getHttpService(), tmpRawRequest);
                     tmpReq.getResponse();
                     resultMap.put(tmpDomain, new ScanItem(param, tmpReq));

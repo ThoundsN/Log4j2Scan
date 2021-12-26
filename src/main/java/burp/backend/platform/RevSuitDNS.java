@@ -118,6 +118,7 @@ public class RevSuitDNS implements IBackend {
 
     @Override
     public int[] getSupportedPOCTypes() {
-        return new int[]{IPOC.POC_TYPE_RMI, IPOC.POC_TYPE_LDAP};
+        return new int[]{IPOC.POC_TYPE_LDAP, IPOC.POC_TYPE_RMI,IPOC.UNICODE};
     }
+
 }

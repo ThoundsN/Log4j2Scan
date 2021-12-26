@@ -73,8 +73,8 @@ public class GoDnslog implements IBackend {
                 return (((JSONArray) jObj.get("result")).size() > 0);
             }
         } catch (Exception ex) {
-            parent.stderr.println("godnslog check result error : " +ex);
-            parent.stderr.println(url);
+            parent.stdout.println("godnslog check result error : " +ex);
+            parent.stdout.println(url);
             return false;
         }
         return false;
@@ -101,6 +101,6 @@ public class GoDnslog implements IBackend {
 
     @Override
     public int[] getSupportedPOCTypes() {
-        return new int[]{IPOC.POC_TYPE_LDAP, IPOC.POC_TYPE_RMI};
+        return new int[]{IPOC.POC_TYPE_LDAP, IPOC.POC_TYPE_RMI,IPOC.UNICODE};
     }
 }

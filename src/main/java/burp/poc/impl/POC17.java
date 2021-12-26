@@ -13,7 +13,7 @@ public class POC17 implements IPOC {
 
     @Override
     public int getType() {
-        return POC_TYPE_LDAP;
+        return UNICODE;
     }
 
     @Override

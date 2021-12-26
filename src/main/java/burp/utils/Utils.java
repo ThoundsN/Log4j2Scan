@@ -9,6 +9,7 @@ import burp.poc.IPOC;
 
 import java.lang.reflect.Field;
 
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
@@ -153,5 +154,23 @@ public class Utils {
         }
         return hasWaf;
 
+    }
+
+    //burp are unable to process dot less i with its api
+    public static String unicodeReplace(String poc){
+        return poc.replace("ı","@@@@");
+    }
+
+    public static String unicodeRestore(String reqString){
+        reqString = reqString.replace("%40%40%40%40","ı");
+        return reqString.replace("@@@@","ı");
+
+    }
+
+    public static byte[] unicodeRestore(byte[] tmpRawRequest){
+        String bytesAsString = new String(tmpRawRequest, StandardCharsets.UTF_8);
+        bytesAsString = Utils.unicodeRestore(bytesAsString);
+        tmpRawRequest = bytesAsString.getBytes(StandardCharsets.UTF_8);
+        return tmpRawRequest;
     }
 }

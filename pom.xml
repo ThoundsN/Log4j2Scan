@@ -6,7 +6,7 @@
 
     <groupId>com.ragnarokv</groupId>
     <artifactId>Log4j2Scan</artifactId>
-    <version>1.4</version>
+    <version>1.41</version>
 
     <build>
         <plugins>
