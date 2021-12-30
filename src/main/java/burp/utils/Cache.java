@@ -40,7 +40,11 @@ public  class Cache {
     public  void addRequestKey(IRequestInfo request){
         String keyOfRequest = Utils.getKeyOfRequest(request);
         KEY_OF_REQUESTS.put(keyOfRequest,false);
-        parent.uiHandler.cui.model.addRow(keyOfRequest);
+        try {
+            parent.uiHandler.cui.model.addRow(keyOfRequest);
+        }catch (Exception ex){
+            parent.stderr.println(ex.getStackTrace());
+        }
 
     }
 

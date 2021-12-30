@@ -1,18 +1,20 @@
 # Log4j2Scan
 
-> 本工具仅供学习研究自查使用，切勿用于非法用途，由使用该工具产生的一切风险均与本人无关！
+魔改于 https://github.com/whwlsfb/Log4j2Scan
 
-> dnslog.cn由于请求人数过多，时有无法访问接口的问题，若出现无法扫描的情况时，请确认插件日志中是否提示Dnslog加载成功，或者根据下方的方法设置dnslog为ceye.io
+增加了新的bypass waf  payload
 
-Log4j2 远程代码执行漏洞，BurpSuite被动扫描插件。
+增加了 param Name ， json special unicode payload，  path 的扫描
 
-支持精确提示漏洞参数、漏洞位置，支持多dnslog平台扩展、自动忽略静态文件。
+增加了避免重复扫描的 Tree算法
 
-漏洞检测暂只支持以下类型
-- Url
-- Cookie
-- Header
-- Body(x-www-form-urlencoded)
+添加了对param name 加白的功能
+
+优化了代码逻辑
+
+
+
+
 
 # ChangeLog
 ### 2021/12/12
